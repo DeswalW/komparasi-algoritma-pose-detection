@@ -8,10 +8,12 @@ import csv
 import json
 import statistics
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import numpy as np
 
+from .mappings import COCO17_NAMES, COCO17_SIGMAS
+from .schemas import GTFrame, Pose17
 from .schemas import FrameResult
 
 
@@ -76,6 +78,32 @@ SUMMARY_FIELDS = [
     "fps_mean",
     "fps_effective",            # n_frames_total / Σ(latency / 1000)
     "notes",
+]
+
+PER_KEYPOINT_FIELDS = [
+    "video_name",
+    "algorithm",
+    "frame_idx",
+    "timestamp_sec",
+    "status",
+    "matched_pred_found",
+    "match_method",
+    "matched_pred_score",
+    "keypoint_idx",
+    "keypoint_name",
+    "is_active",
+    "is_eval_joint",
+    "gt_v",
+    "gt_x",
+    "gt_y",
+    "pred_v",
+    "pred_x",
+    "pred_y",
+    "distance_px",
+    "pck_threshold_px",
+    "pck_correct",
+    "oks_sigma",
+    "oks_term",
 ]
 
 
@@ -230,3 +258,116 @@ def save_run_config(config_dict: dict, output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(config_dict, f, indent=2, default=str)
+
+
+def write_per_keypoint_csv(
+    results: List[FrameResult],
+    gt_by_frame: Dict[int, GTFrame],
+    matched_pred_by_frame: Dict[int, Optional[Pose17]],
+    output_path: Path,
+) -> None:
+    """Write detailed keypoint-level metrics per frame.
+
+    Produces one row per frame × keypoint in COCO-17 order.
+    """
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=PER_KEYPOINT_FIELDS)
+        writer.writeheader()
+
+        for r in results:
+            gt = gt_by_frame.get(r.frame_idx)
+            pred = matched_pred_by_frame.get(r.frame_idx)
+
+            if gt is None:
+                for j, name in enumerate(COCO17_NAMES):
+                    writer.writerow({
+                        "video_name": r.video_name,
+                        "algorithm": r.algorithm,
+                        "frame_idx": r.frame_idx,
+                        "timestamp_sec": _fmt(r.timestamp_sec),
+                        "status": r.status,
+                        "matched_pred_found": _fmt(r.matched_pred_found),
+                        "match_method": r.match_method,
+                        "matched_pred_score": _fmt(r.matched_pred_score),
+                        "keypoint_idx": j,
+                        "keypoint_name": name,
+                        "is_active": 0,
+                        "is_eval_joint": 0,
+                        "gt_v": "",
+                        "gt_x": "",
+                        "gt_y": "",
+                        "pred_v": "",
+                        "pred_x": "",
+                        "pred_y": "",
+                        "distance_px": "",
+                        "pck_threshold_px": "",
+                        "pck_correct": "",
+                        "oks_sigma": _fmt(float(COCO17_SIGMAS[j])),
+                        "oks_term": "",
+                    })
+                continue
+
+            gt_kpts = gt.pose.keypoints
+            pred_kpts = pred.keypoints if pred is not None else None
+            area = max(float(gt.gt_area), 1.0)
+            pck_threshold = r.pck_alpha * max(float(np.sqrt(area)), 1e-6)
+
+            for j, name in enumerate(COCO17_NAMES):
+                gt_x, gt_y, gt_v = [float(x) for x in gt_kpts[j]]
+                is_active = bool(gt.active_mask[j])
+                is_eval_joint = bool(is_active and gt_v > 0)
+
+                pred_x = pred_y = pred_v = None
+                pred_present = False
+                if pred_kpts is not None:
+                    pred_x, pred_y, pred_v = [float(x) for x in pred_kpts[j]]
+                    pred_present = pred_v > 0
+
+                distance_px = None
+                if is_eval_joint and pred_present:
+                    distance_px = float(
+                        np.linalg.norm(
+                            np.array([pred_x, pred_y], dtype=np.float64)
+                            - np.array([gt_x, gt_y], dtype=np.float64)
+                        )
+                    )
+
+                if is_eval_joint:
+                    if distance_px is None:
+                        pck_correct = 0
+                        oks_term = 0.0
+                    else:
+                        pck_correct = int(distance_px <= pck_threshold)
+                        sigma = float(COCO17_SIGMAS[j])
+                        e = (distance_px ** 2) / (2.0 * (sigma ** 2) * area)
+                        oks_term = float(np.exp(-e))
+                else:
+                    pck_correct = None
+                    oks_term = None
+
+                writer.writerow({
+                    "video_name": r.video_name,
+                    "algorithm": r.algorithm,
+                    "frame_idx": r.frame_idx,
+                    "timestamp_sec": _fmt(r.timestamp_sec),
+                    "status": r.status,
+                    "matched_pred_found": _fmt(r.matched_pred_found),
+                    "match_method": r.match_method,
+                    "matched_pred_score": _fmt(r.matched_pred_score),
+                    "keypoint_idx": j,
+                    "keypoint_name": name,
+                    "is_active": _fmt(is_active),
+                    "is_eval_joint": _fmt(is_eval_joint),
+                    "gt_v": _fmt(gt_v),
+                    "gt_x": _fmt(gt_x),
+                    "gt_y": _fmt(gt_y),
+                    "pred_v": _fmt(pred_v),
+                    "pred_x": _fmt(pred_x),
+                    "pred_y": _fmt(pred_y),
+                    "distance_px": _fmt(distance_px),
+                    "pck_threshold_px": _fmt(pck_threshold if is_eval_joint else None),
+                    "pck_correct": "" if pck_correct is None else pck_correct,
+                    "oks_sigma": _fmt(float(COCO17_SIGMAS[j])),
+                    "oks_term": _fmt(oks_term),
+                })

@@ -24,7 +24,7 @@ import time
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -33,7 +33,13 @@ from .backends.base import BackendAdapter
 from .gt_parser import get_scene_info, load_gt
 from .metrics import evaluate_frame, match_target
 from .schemas import FrameResult, GTFrame, Pose17, RunConfig
-from .writers import save_run_config, write_per_frame_csv, write_summary_csv
+from .visualizer import render_evaluation_video
+from .writers import (
+    save_run_config,
+    write_per_frame_csv,
+    write_per_keypoint_csv,
+    write_summary_csv,
+)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -120,6 +126,7 @@ def run_evaluation(
     print(f"  Video FPS: {fps_source:.2f}  |  Frames: {n_video_frames}")
 
     results: List[FrameResult] = []
+    matched_pred_by_frame: Dict[int, Optional[Pose17]] = {}
 
     # ── Full-video mode (AlphaPose, OpenPose) ─────────────────────────────────
     if backend.INFERENCE_MODE == "full_video":
@@ -147,7 +154,7 @@ def run_evaluation(
             predictions = pred_by_frame.get(frame_idx, [])
             timestamp_sec = frame_idx / fps_source
 
-            result = _build_frame_result(
+            result, matched_pred = _build_frame_result(
                 video_name=video_name,
                 algorithm=algorithm,
                 frame_idx=frame_idx,
@@ -160,6 +167,7 @@ def run_evaluation(
                 cfg=cfg,
             )
             results.append(result)
+            matched_pred_by_frame[frame_idx] = matched_pred
             frame_idx += 1
 
     # ── Per-frame mode (MediaPipe, MoveNet) ───────────────────────────────────
@@ -183,7 +191,7 @@ def run_evaluation(
             t1 = time.perf_counter()
             latency_ms = (t1 - t0) * 1000.0
 
-            result = _build_frame_result(
+            result, matched_pred = _build_frame_result(
                 video_name=video_name,
                 algorithm=algorithm,
                 frame_idx=frame_idx,
@@ -196,6 +204,7 @@ def run_evaluation(
                 cfg=cfg,
             )
             results.append(result)
+            matched_pred_by_frame[frame_idx] = matched_pred
 
             if frame_idx % 50 == 0:
                     oks_s = f"{result.oks:.3f}" if result.oks is not None else "N/A"
@@ -204,6 +213,25 @@ def run_evaluation(
             frame_idx += 1
 
     cap.release()
+
+    # Additional detailed outputs per run
+    per_keypoint_csv = run_dir / "metrics_per_keypoint_per_frame.csv"
+    write_per_keypoint_csv(results, gt_by_frame, matched_pred_by_frame, per_keypoint_csv)
+    print(f"  -> Per-keypoint CSV : {per_keypoint_csv}")
+
+    overlay_video = run_dir / "overlay_eval.mp4"
+    try:
+        render_evaluation_video(
+            video_path=video_path,
+            output_path=overlay_video,
+            results=results,
+            gt_by_frame=gt_by_frame,
+            matched_pred_by_frame=matched_pred_by_frame,
+        )
+        print(f"  -> Overlay video   : {overlay_video}")
+    except Exception as exc:
+        print(f"  WARNING: failed to render overlay video: {exc}")
+
     print(f"  Processed {len(results)} frames.")
     return results
 
@@ -219,7 +247,7 @@ def _build_frame_result(
     predictions: List[Pose17],
     latency_ms: float,
     cfg: RunConfig,
-) -> FrameResult:
+) -> Tuple[FrameResult, Optional[Pose17]]:
     """Build a FrameResult from predictions + GT for one frame."""
 
     fps_inst = 1000.0 / latency_ms if latency_ms > 0 else 0.0
@@ -236,7 +264,7 @@ def _build_frame_result(
         r.fps_inst = fps_inst
         r.pred_person_count = len(predictions)
         r.pck_alpha = pck_alpha
-        return r
+        return r, None
 
     gt_v = gt_frame.pose.keypoints[:, 2]
     active_mask = gt_frame.active_mask
@@ -289,7 +317,7 @@ def _build_frame_result(
         latency_ms=latency_ms,
         fps_inst=fps_inst,
         status=status,
-    )
+    ), matched
 
 
 # ── Orchestrator ──────────────────────────────────────────────────────────────
