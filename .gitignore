@@ -1,0 +1,53 @@
+# Python caches and environments
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.python-version
+.venv/
+venv/
+venv*/
+*/.venv/
+*/__pycache__/
+
+# Logs and pid files
+*.log
+*.log.err
+*.err.log
+*.pid
+*_pid.txt
+
+# Editor and build artifacts
+.vs/
+.vscode/
+build/
+out/
+dist/
+
+# Temporary helper files
+_tmp_*.py
+
+# Archives and large binaries
+*.zip
+*.pt
+*.pth
+*.weights
+*.caffemodel
+*.task
+
+# Dataset / generated outputs
+backup/
+Video_Uji/
+results/
+results_*/
+op_test*/
+
+# Local Git metadata backups created during repo normalization
+**/.git_repo_backup/
+**/.git_repo_backup
+
+# Project-specific large runtime directories
+openpose/build/
+openpose/out/
+openpose/3rdparty/windows/
+AlphaPose/examples/res/
