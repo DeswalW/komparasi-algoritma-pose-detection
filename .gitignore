@@ -38,9 +38,9 @@ _tmp_*.py
 # Dataset / generated outputs
 backup/
 Video_Uji/
-results/
-results_*/
-op_test*/
+# results/
+# results_*/
+# op_test*/
 
 # Local Git metadata backups created during repo normalization
 **/.git_repo_backup/

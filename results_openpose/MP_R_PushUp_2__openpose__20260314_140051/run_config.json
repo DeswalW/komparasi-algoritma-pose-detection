@@ -1,0 +1,23 @@
+{
+  "video": "C:\\Users\\PC\\Documents\\deswal\\Video_Uji\\MP_R_PushUp_2.mp4",
+  "gt": "C:\\Users\\PC\\Documents\\deswal\\Ground_Truth_Keypoint\\MP_R_PushUp_2.json",
+  "backend": "openpose",
+  "pck_alpha": 0.2,
+  "person_selector": "gt_bbox_iou",
+  "backend_config": {
+    "extra_args": [],
+    "alphapose_dir": "C:\\Users\\PC\\Documents\\deswal\\AlphaPose",
+    "cfg": "",
+    "checkpoint": "",
+    "detector": "yolox-x",
+    "alphapose_timeout_sec": 0.0,
+    "model_name": "movenet_lightning",
+    "openpose_dir": "openpose/build",
+    "model_folder": "openpose/models",
+    "body_model": "BODY_25",
+    "model_path": "",
+    "num_poses": 4,
+    "fps_hint": 30.0,
+    "device": "cpu"
+  }
+}
