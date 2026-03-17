@@ -77,7 +77,6 @@ Setiap file JSON memiliki struktur:
 ```
 
 ### Makna Nilai Visibilitas (`v`)
-
 Setiap keypoint dalam anotasi memiliki nilai visibilitas:
 
 | Nilai `v` | Arti |
@@ -95,7 +94,6 @@ Tidak semua 17 keypoint COCO selalu relevan. Setiap kategori mendefinisikan subs
 ---
 
 ## 3. Konvensi Keypoint COCO-17
-
 Seluruh sistem menggunakan representasi **COCO-17** sebagai format kanonik:
 
 | Indeks | Nama | Indeks | Nama |

@@ -38,6 +38,7 @@ BAB I PENDAHULUAN	1
 1.4.1	Manfaat Teoretis	4
 1.4.2	Manfaat Praktis	4
 1.5	Kebaruan Penelitian	5
+1.6	Batasan Masalah	5
 BAB II KAJIAN PUSTAKA	6
 2.1	Tinjauan Pustaka	6
 2.2	Landasan Teoretik	7
@@ -45,7 +46,7 @@ BAB II KAJIAN PUSTAKA	6
 2.2.1.1	Pre-processing Citra	10
 2.2.1.2	CNN Feature Extraction	10
 2.2.1.3	Prediksi Keypoint	10
-2.2.1.4	Selecton Construction	10
+2.2.1.4	Skeleton Construction	10
 2.2.1.5	Analisis Pose Lanjutan	11
 2.2.2	Peran dan Penerapan HPE dalam Berbagai Bidang	11
 2.2.2.1	Penerapan HPE dalam Bidang Olahraga	11
@@ -75,6 +76,7 @@ BAB II KAJIAN PUSTAKA	6
 2.2.6	Metode Evaluasi HPE	23
 2.2.6.1	Percentage of Correct Keypoints (PCK)	24
 2.2.6.2	Object Keypoint Similarity (OKS)	26
+2.2.6.3	Skema Evaluasi Single-Person dan Multi-Person	27
 2.2.7	Average Precision (AP)	27
 BAB III METODE PENELITIAN	29
 3.1	Pendekatan, Jenis, dan Prosedur Penelitian	29
@@ -133,14 +135,16 @@ LAMPIRAN - LAMPIRAN	58
 DAFTAR GAMBAR
 
 Gambar 2. 1. Pendekatan Top-down	14
-Gambar 2. 2. Pendekatan Buttom-up	15
+Gambar 2. 2. Pendekatan Bottom-up	15
 Gambar 2. 3. Pendekatan Heatmap-based	15
 Gambar 2. 4. Pendekatan Regression-based	16
 Gambar 3. 1. (a) Proses Anotasi Ground Truth CVAT (b) COCO 17 Keypoint	39
-Gambar 4. 1. Perbandingan metrik global OKS, PCK, dan FPS antar algoritma	49
-Gambar 4. 2. Perbandingan OKS pada skenario single-person dan multi-person	49
-Gambar 4. 3. Perbandingan OKS pada pencahayaan terang dan redup	49
-Gambar 4. 4. Heatmap PCK per aktivitas dan algoritma	49
+Gambar 4. 1. Grafik Perbandingan Metrik Evaluasi per Algoritma	49
+Gambar 4. 2. Grafik Performa Masing-Masing Algoritma terhadap 4 Pose	49
+Gambar 4. 3. Grafik Perbandingan OKS per Kondisi untuk Setiap Pose	49
+Gambar 4. 4. Grafik Perbandingan PCK per Kondisi untuk Setiap Pose	49
+Gambar 4. 5. Grafik Perbandingan Rerata FPS untuk Setiap Pose	49
+Gambar 4. 6. Grafik Perbandingan Performa Antar Algoritma untuk Setiap Pose	49
 
 
 
@@ -167,14 +171,15 @@ PENDAHULUAN
       Meskipun telah mencapai kemajuan yang pesat, model-model HPE modern seringkali menunjukkan penurunan kinerja yang signifikan ketika dihadapkan pada skenario dunia nyata yang kompleks. Kondisi-kondisi ini seringkali tidak terwakili dengan baik dalam dataset benchmark yang umumnya dikumpulkan dalam lingkungan yang terkontrol. Studi ini secara spesifik berfokus pada dua tantangan utama yang saling terkait dan sering muncul dalam aplikasi praktis, yaitu kepadatan orang (skenario multi-orang) dan kondisi pencahayaan yang buruk.   
       Ketika beberapa individu berada dalam satu adegan, oklusi baik yang disebabkan oleh bagian tubuh sendiri (self-occlusion), objek di lingkungan, maupun tumpang tindih antar-individu menjadi tantangan besar bagi akurasi model. Oklusi ini menimbulkan dua masalah utama. Pertama, feature confusion (kebingungan fitur), di mana model kesulitan membedakan fitur milik individu target dengan individu pengganggu yang memiliki kemiripan visual tinggi, terutama pada bagian tubuh yang tumpang tindih. Kedua, hilangnya informasi struktural tubuh yang lengkap. Oklusi menghalangi pandangan model terhadap keseluruhan kerangka sinematik, sehingga proses inferensi untuk memprediksi posisi sendi yang terhalang menjadi sangat sulit dan tidak andal (Bai et al., 2024).
       Adanya degradasi sinyal pada kondisi pencahayaan rendah juga menjadi tantangan yang dihadapi pada model HPE. Kondisi cahaya yang sangat rendah secara drastis merusak kualitas citra input, menyebabkan hilangnya detail visual yang kritis, visibilitas yang buruk secara umum, dan tingkat noise ISO yang tinggi. Model HPE yang sangat bergantung pada informasi tekstur dan detail frekuensi tinggi untuk melokalisasi sendi akan mengalami kesulitan besar, karena fitur-fitur esensial ini terdegradasi secara signifikan dalam kondisi tersebut. Pendekatan yang dilakukan seperti menerapkan teknik peningkatan citra (image enhancement) sebelum estimasi pose seringkali terbukti suboptimal. Hal ini karena teknik tersebut tidak dirancang secara spesifik untuk tugas downstream seperti deteksi keypoint dan berisiko mengorbankan informasi semantik yang justru penting untuk deteksi sendi yang akurat.
-      Kedua tantangan ini tidak bersifat independent, sebaliknya, keduanya saling memperburuk dalam sebuah interaksi kausal. Kondisi pencahayaan rendah secara langsung mengurangi isyarat visual penting seperti tepi dan tekstur yang digunakan model untuk membedakan batas antar individu yang tumpang tindih. Hal ini secara signifikan memperparah masalah feature confusion. Lebih lanjut, ketika sebuah sendi mengalami oklusi, model seringkali mengandalkan konteks dari sendi-sendi lain yang terlihat untuk "menebak" posisinya. Namun, dalam kondisi cahaya rendah, konteks visual ini sendiri menjadi tidak dapat diandalkan, yang pada akhirnya menyebabkan kegagalan inferensi struktural. Oleh karena itu, skenario yang paling menantang dan paling representatif dari banyak aplikasi dunia nyata (misalnya, pengawasan malam hari, analisis kerumunan di dalam ruangan remang) adalah adegan multi-orang dalam kondisi pencahayaan rendah. Meskipun demikian, masih terdapat kekurangan analisis komparatif yang sistematis untuk mengevaluasi bagaimana berbagai arsitektur HPE merespons kombinasi tantangan ini. Penelitian ini bertujuan untuk mengisi kesenjangan pengetahuan tersebut.
+      Kedua tantangan ini tidak bersifat independen, sebaliknya, keduanya saling memperburuk dalam sebuah interaksi kausal. Kondisi pencahayaan rendah secara langsung mengurangi isyarat visual penting seperti tepi dan tekstur yang digunakan model untuk membedakan batas antar individu yang tumpang tindih. Hal ini secara signifikan memperparah masalah feature confusion. Lebih lanjut, ketika sebuah sendi mengalami oklusi, model seringkali mengandalkan konteks dari sendi-sendi lain yang terlihat untuk "menebak" posisinya. Namun, dalam kondisi cahaya rendah, konteks visual ini sendiri menjadi tidak dapat diandalkan, yang pada akhirnya menyebabkan kegagalan inferensi struktural. Oleh karena itu, skenario yang paling menantang dan paling representatif dari banyak aplikasi dunia nyata (misalnya, pengawasan malam hari, analisis kerumunan di dalam ruangan remang) adalah adegan multi-orang dalam kondisi pencahayaan rendah. Meskipun demikian, masih terdapat kekurangan analisis komparatif yang sistematis untuk mengevaluasi bagaimana berbagai arsitektur HPE merespons kombinasi tantangan ini. Penelitian ini bertujuan untuk mengisi kesenjangan pengetahuan tersebut.
 
 1.2 Rumusan Masalah
-1. Bagaimana perbandingan performa dari algoritma HPE yang terdiri atas PoseNet, MoveNet, OpenPose, MediaPipe Pose, HRNet, YOLO-Pose, AlphaPose, BlazePose, DeepLabCut, dan EfficientPose ketika dihadapkan pada dataset video dengan variasi jumlah orang (single-person dan multi-person) dan kondisi pencahayaan (terang dan redup)?
+1. Bagaimana perbandingan performa algoritma HPE pada eksperimen inti (PoseNet, MoveNet Thunder, OpenPose, MediaPipe Pose, HRNet, YOLOv8-Pose, AlphaPose, BlazePose, dan EfficientPose) ketika dihadapkan pada dataset video dengan variasi jumlah orang (single-person dan multi-person) serta kondisi pencahayaan (terang dan redup)?
 2. Bagaimana pola kegagalan yang spesifik untuk setiap algoritma berdasarkan karakteristik arsitektural dalam skenario variasi jumlah orang dan kondisi pencahayaan?
 1.3 Tujuan Penelitian
-1. Mengevaluasi dan membandingkan performa dari setiap algoritma HPE pada dataset video yang secara sistematis memvariasikan jumlah orang dan kondisi pencahayaan.
+1. Mengevaluasi dan membandingkan performa sembilan algoritma HPE pada eksperimen inti menggunakan dataset video yang secara sistematis memvariasikan jumlah orang dan kondisi pencahayaan.
 2. Menganalisis pola kegagalan spesifik dari setiap arsitektur dalam skenario variasi jumlah orang dan kondisi pencahayaan untuk memberikan wawasan tentang kekuatan dan kelemahan fundamental yang melekat pada desain algoritma.
+3. Menyusun landasan empiris untuk perluasan penelitian ke rancangan penuh 10 algoritma dan 9 pose pada tahap lanjutan setelah sidang.
 
 1.4 Manfaat Penelitian
       Penelitian ini terbagi menjadi dua, yaitu manfaat secara teoritis dan praktis.
@@ -195,9 +200,15 @@ Berbeda dengan (Roggio et al., 2024) yang hanya menyajikan narrative review meng
 2. Kebaruan Metode
 Penelitian sebelumnya (Espitia-Mora et al., 2024; Stenum et al., 2021) umumnya menggunakan dataset statis dari benchmark seperti COCO, sedangkan penelitian ini menggunakan dataset video dinamis yang ditangkap secara khusus untuk memastikan pengujian yang lebih representatif terhadap aplikasi praktis.
 3. Kebaruan Ilmu dan Teknologi	
-Tidak seperti studi terdahulu oleh Jo & Kim (2022) hanya membandingkan sebagian kecil algoritma seperti MoveNet, PoseNet, dan OpenPose, penelitian ini melakukan perbandingan komprehensif terhadap sepuluh algoritma dari paradigma arsitektural berbeda (top-down, bottom-up, berbasis regresi, heatmap, dan single-shot), sehingga memberikan panduan berbasis bukti mengenai kekuatan dan kelemahan masing-masing pendekatan.
+Tidak seperti studi terdahulu oleh Jo & Kim (2022) yang hanya membandingkan sebagian kecil algoritma seperti MoveNet, PoseNet, dan OpenPose, penelitian ini dirancang untuk komparasi lintas paradigma arsitektural (top-down, bottom-up, berbasis regresi, heatmap, dan single-shot). Pada tahap sidang, implementasi empiris difokuskan pada sembilan algoritma siap-pakai, sedangkan DeepLabCut diposisikan sebagai perluasan pada tahap lanjutan karena membutuhkan pelatihan ulang domain-spesifik.
 
-BAB I 
+1.6 Batasan Masalah
+      Penelitian ini memiliki batasan operasional sebagai berikut.
+1. Rancangan penuh penelitian menargetkan evaluasi 10 algoritma HPE dan 9 pose dinamis.
+2. Pada tahap sidang, eksperimen inti mencakup 9 algoritma siap-pakai (PoseNet, MoveNet Thunder, OpenPose, MediaPipe Pose, HRNet, YOLOv8-Pose, AlphaPose, BlazePose, dan EfficientPose). DeepLabCut belum dimasukkan pada komparasi inti karena memerlukan pelatihan ulang domain-spesifik sehingga fairness terhadap model siap-pakai perlu dijaga dengan skenario evaluasi terpisah.
+3. Pada tahap sidang, data yang dianalisis mencakup 4 dari 9 pose yang direncanakan, yaitu Jongkok, PushUp, DudukBerdiri, dan Yoga. Pemilihan ini didasarkan pada kesiapan data video, kelengkapan anotasi per-frame, serta validasi lintas-backend yang telah tuntas.
+4. Perluasan ke target penuh (10 algoritma dan 9 pose) dilakukan pada tahap lanjutan setelah sidang dengan prosedur evaluasi yang sama agar hasil tetap terbandingkan.
+
 BAB II 
 KAJIAN PUSTAKA
 
@@ -210,7 +221,7 @@ KAJIAN PUSTAKA
 1. membandingkan algoritma HPE dalam jumlah besar dan beragam pendekatan,
 2. menggunakan data video gerakan dinamis yang dianotasi secara per-frame, dan
 3. secara simultan mengevaluasi pengaruh jumlah orang dan kondisi pencahayaan sebagai representasi tantangan dunia nyata.
-      Oleh karena itu, penelitian ini diposisikan untuk mengisi celah tersebut dengan melakukan analisis komparatif terhadap sepuluh algoritma HPE pada dataset video dinamis dengan variasi jumlah orang dan kondisi pencahayaan, menggunakan metrik evaluasi yang terstandarisasi.
+      Oleh karena itu, penelitian ini diposisikan untuk mengisi celah tersebut dengan rancangan komparatif sepuluh algoritma HPE pada dataset video dinamis dengan variasi jumlah orang dan kondisi pencahayaan, menggunakan metrik evaluasi yang terstandarisasi. Pada tahap sidang, implementasi empiris difokuskan pada sembilan algoritma yang telah selesai dievaluasi penuh.
       
 2.2 Landasan Teoretik
       Penelitian ini didasari oleh berbagai teori mengenai pose estimation sebagai penunjang penelitian berlangsung.
@@ -222,26 +233,14 @@ KAJIAN PUSTAKA
       Berdasarkan ruang lingkup subjek yang dianalisis, HPE dapat diklasifikasikan menjadi dua kategori utama, yaitu single-person pose estimation dan multi-person pose estimation. Single-person pose estimation berfokus pada pendeteksian pose satu individu dalam sebuah citra atau frame video, biasanya dengan asumsi bahwa hanya terdapat satu subjek utama. Sebaliknya, multi-person pose estimation menangani skenario yang lebih kompleks, di mana terdapat lebih dari satu individu dalam satu frame. Pada skenario multi-orang, tantangan utama yang dihadapi adalah oklusi antar tubuh, kesalahan asosiasi keypoint, serta variasi ukuran dan posisi individu dalam citra (Guo et al., 2022).
       Selain jumlah subjek, kondisi lingkungan juga memiliki pengaruh besar terhadap kinerja HPE. Variasi pencahayaan, khususnya pada kondisi pencahayaan rendah, dapat menurunkan kualitas citra input sehingga menyulitkan proses ekstraksi fitur dan pelokalan keypoint. Degradasi kualitas visual, peningkatan noise, serta hilangnya detail tekstur menjadi faktor utama yang menyebabkan penurunan akurasi estimasi pose (Wei et al., 2025). Oleh karena itu, evaluasi kinerja algoritma HPE pada kondisi pencahayaan dan kepadatan subjek yang berbeda menjadi aspek penting dalam penelitian yang berorientasi pada penerapan dunia nyata.
       Dengan demikian, HPE tidak hanya dipandang sebagai permasalahan teknis pelokalan titik tubuh, tetapi juga sebagai fondasi penting bagi berbagai aplikasi lanjutan yang memerlukan pemahaman mendalam terhadap postur dan gerakan manusia. Pemahaman terhadap konsep dan prinsip dasar HPE menjadi landasan teoretis yang krusial sebelum membahas arsitektur, pendekatan, serta algoritma estimasi pose secara lebih spesifik pada subbab berikutnya.
-      Ditambahi alur kerja dan mekanisme model deteksi pose
-      Secara operasional, sistem HPE bekerja melalui serangkaian tahapan pemrosesan visual yang terstruktur, mulai dari penerimaan data citra hingga pembentukan representasi pose dalam bentuk kerangka tubuh (skeleton). Alur kerja tersebut umumnya terdiri atas beberapa tahap utama, yaitu pre-processing citra, ekstraksi fitur, prediksi keypoint, serta konstruksi skeleton pose sebagaimana Gambar X.
-Input Image
-?
-Pre-processing
-?
-CNN Feature Extraction
-?
-Prediksi Keypoint
-?
-Skeleton Construction
-?
-Analisis Pose Lanjutan
+      Secara operasional, sistem HPE bekerja melalui serangkaian tahapan pemrosesan visual yang terstruktur, mulai dari penerimaan data citra hingga pembentukan representasi pose dalam bentuk kerangka tubuh (skeleton). Alur kerja tersebut umumnya terdiri atas urutan: input image, pre-processing, CNN feature extraction, prediksi keypoint, skeleton construction, dan analisis pose lanjutan.
 2.2.1.1 Pre-processing Citra
       Tahap pertama adalah pre-processing citra, yaitu proses persiapan data visual sebelum diproses oleh model. Pada tahap ini citra atau frame video yang menjadi input biasanya mengalami proses normalisasi ukuran, penyesuaian skala, serta augmentasi data seperti rotasi, flipping, atau cropping untuk meningkatkan kemampuan generalisasi model (Sun et al., 2021). Proses ini bertujuan memastikan bahwa data yang masuk ke dalam jaringan memiliki format dan distribusi yang konsisten.
 2.2.1.2 CNN Feature Extraction
       Tahap kedua adalah ekstraksi fitur (feature extraction) yang dilakukan menggunakan arsitektur jaringan saraf konvolusional atau Convolutional Neural Network (CNN). Pada tahap ini model mempelajari pola visual penting dari citra, seperti tepi tubuh, bentuk anggota badan, dan struktur kontur manusia. CNN bekerja dengan menerapkan operasi konvolusi berlapis yang mampu mengekstraksi fitur visual secara hierarkis, mulai dari fitur dasar seperti garis dan tekstur hingga fitur kompleks seperti bentuk tubuh manusia (Newell et al., 2022).
 2.2.1.3 Prediksi Keypoint
       Setelah fitur visual berhasil diekstraksi, tahap berikutnya adalah prediksi keypoint atau joint localization. Pada tahap ini jaringan menghasilkan heatmap probabilistik yang menunjukkan kemungkinan posisi setiap titik sendi tubuh pada citra. Setiap heatmap merepresentasikan satu titik tubuh tertentu, misalnya bahu, siku, atau lutut. Nilai intensitas pada heatmap menunjukkan tingkat kepercayaan model terhadap lokasi keypoint tersebut. Titik dengan probabilitas tertinggi kemudian dipilih sebagai posisi akhir keypoint pada citra (Xiao et al., 2023).
-2.2.1.4 Selecton Construction
+2.2.1.4 Skeleton Construction
       Tahap selanjutnya adalah asosiasi dan konstruksi skeleton, yaitu proses menghubungkan keypoint-keypoint yang telah diprediksi menjadi struktur kerangka tubuh manusia. Pada model multi-person pose estimation, tahap ini menjadi lebih kompleks karena sistem harus memastikan bahwa keypoint yang terdeteksi berasal dari individu yang sama. Beberapa pendekatan menggunakan metode part affinity fields (PAF) untuk memodelkan hubungan spasial antar keypoint sehingga memungkinkan pengelompokan titik tubuh yang benar dalam satu individu (Cao et al., 2021).
 2.2.1.5 Analisis Pose Lanjutan
       Setelah kerangka tubuh terbentuk, sistem dapat melakukan analisis pose lanjutan, seperti estimasi sudut sendi, analisis gerakan, atau pengenalan aktivitas manusia. Informasi ini sering dimanfaatkan dalam berbagai aplikasi praktis, seperti sistem analisis olahraga, rehabilitasi medis, interaksi manusia-komputer, hingga sistem pemantauan keselamatan kerja (Schmeckpeper et al., 2022).
@@ -269,7 +268,7 @@ Analisis Pose Lanjutan
 Gambar 2. 1. Pendekatan Top-down
       Pendekatan top-down (Gambar 2.1) bekerja dengan cara mendeteksi individu terlebih dahulu menggunakan metode object detection, kemudian melakukan estimasi pose secara terpisah pada setiap individu yang terdeteksi. Pendekatan ini umumnya menghasilkan akurasi keypoint yang tinggi karena estimasi pose dilakukan pada area yang telah difokuskan pada satu individu. Namun, pendekatan top-down memiliki keterbatasan dalam hal efisiensi komputasi, terutama ketika jumlah individu dalam frame meningkat, karena proses estimasi pose harus dilakukan berulang untuk setiap individu (McNally et al., 2021).
 
-Gambar 2. 2. Pendekatan Buttom-up
+Gambar 2. 2. Pendekatan Bottom-up
       Sebaliknya, pendekatan bottom-up (Gambar 2.2) melakukan deteksi seluruh keypoint tubuh manusia secara bersamaan pada satu citra atau frame, kemudian mengelompokkan keypoint-keypoint tersebut menjadi pose individu yang terpisah. Pendekatan ini lebih efisien secara komputasi pada skenario multi-orang karena jumlah proses tidak bergantung langsung pada jumlah individu. Namun, tantangan utama dari pendekatan bottom-up terletak pada proses asosiasi keypoint, terutama pada kondisi oklusi dan kepadatan subjek yang tinggi (Dabral et al., 2019).
 2.2.3.3 Representasi Keypoint Heatmap-Based dan Regression-Based
       Berdasarkan cara pelokalan keypoint, arsitektur HPE juga dapat dibedakan menjadi pendekatan berbasis heatmap dan pendekatan berbasis regresi.
@@ -288,7 +287,7 @@ Gambar 2. 4. Pendekatan Regression-based
       Bagian ini membahas algoritma-algoritma HPE yang digunakan dalam penelitian, mencakup pengertian, konsep dasar, dan karakteristik arsitektural masing-masing algoritma. Pembahasan ini bertujuan memberikan landasan teoretis mengenai perbedaan pendekatan yang digunakan oleh setiap algoritma sebelum dilakukan pengujian secara eksperimental pada bab selanjutnya.
 2.2.4.1 PoseNet
        PoseNet merupakan salah satu algoritma HPE berbasis deep learning yang dirancang untuk mendeteksi pose manusia secara efisien pada perangkat dengan sumber daya terbatas. PoseNet dikembangkan dengan tujuan utama untuk memungkinkan estimasi pose secara real-time pada lingkungan berbasis web maupun perangkat bergerak (Salisu et al., 2023).
-       Secara arsitektural, PoseNet menggunakan jaringan konvolusional ringan sebagai backbone untuk mengekstraksi fitur visual dari citra input (Jiang et al., 2023). Algoritma ini memprediksi posisi keypoint tubuh manusia melalui pendekatan berbasis heatmap dan offset, di mana setiap keypoint direpresentasikan sebagai peta probabilitas (Fang et al., 2023). PoseNet mendukung skenario single-person maupun multi-person, dengan pendekatan bottom-uantip pada kasus multi-orang. Karakteristik utama PoseNet adalah efisiensi komputasi dan kemudahan integrasi, meskipun tingkat presisi yang dihasilkan umumnya lebih rendah dibandingkan model HPE yang lebih kompleks (Tang et al., 2024).
+      Secara arsitektural, PoseNet menggunakan jaringan konvolusional ringan sebagai backbone untuk mengekstraksi fitur visual dari citra input (Jiang et al., 2023). Algoritma ini memprediksi posisi keypoint tubuh manusia melalui pendekatan berbasis heatmap dan offset, di mana setiap keypoint direpresentasikan sebagai peta probabilitas (Fang et al., 2023). PoseNet mendukung skenario single-person maupun multi-person, dengan pendekatan bottom-up pada kasus multi-orang. Karakteristik utama PoseNet adalah efisiensi komputasi dan kemudahan integrasi, meskipun tingkat presisi yang dihasilkan umumnya lebih rendah dibandingkan model HPE yang lebih kompleks (Tang et al., 2024).
 2.2.4.2 MoveNet
       MoveNet merupakan algoritma estimasi pose manusia yang dirancang untuk memberikan akurasi tinggi dengan latensi rendah. Algoritma ini banyak digunakan pada aplikasi real-time dan sistem yang membutuhkan respons cepat, seperti aplikasi kebugaran dan interaksi manusia-komputer (Duan et al., 2023).
       MoveNet menggunakan arsitektur jaringan konvolusional modern dengan pendekatan single-shot regression, di mana koordinat keypoint diprediksi secara langsung dari fitur visual (Kamel et al., 2021). Algoritma ini dioptimalkan untuk stabilitas prediksi antar frame video, sehingga menghasilkan estimasi pose yang relatif konsisten. Keunggulan utama MoveNet terletak pada keseimbangan antara akurasi dan efisiensi, menjadikannya salah satu algoritma yang populer untuk aplikasi berbasis video.
@@ -324,7 +323,7 @@ Gambar 2. 4. Pendekatan Regression-based
       Dataset COCO dikembangkan dengan beberapa tujuan utama. Pertama, menyediakan kumpulan gambar dunia nyata yang kaya akan konteks visual sehingga memungkinkan model pembelajaran mesin mempelajari representasi objek yang lebih robust terhadap variasi lingkungan. Kedua, COCO menyediakan anotasi objek dan manusia yang detail, termasuk bounding box, segmentasi objek, serta anotasi keypoint tubuh manusia. Ketiga, dataset ini berfungsi sebagai benchmark standar yang memungkinkan peneliti membandingkan performa berbagai algoritma secara objektif menggunakan protokol evaluasi yang sama (Lin et al., 2014; Yang et al., 2022). Dalam penelitian HPE, COCO sering digunakan sebagai acuan dalam pengembangan dan pengujian berbagai model modern, seperti OpenPose, HRNet, AlphaPose, MoveNet, serta EfficientPose. Penggunaan dataset yang sama memungkinkan evaluasi kinerja model dilakukan secara konsisten dan dapat dibandingkan antar penelitian (Xu et al., 2024).
       Dataset COCO banyak dipilih sebagai acuan dalam penelitian HPE karena memiliki beberapa keunggulan utama. Pertama, dataset ini memiliki tingkat keberagaman data yang tinggi sehingga model yang dilatih menggunakan COCO cenderung lebih robust terhadap variasi kondisi dunia nyata. Kedua, COCO mencakup berbagai pose tubuh yang kompleks, termasuk pose ekstrem serta kondisi occlusion antar objek yang sering terjadi dalam situasi nyata. Ketiga, format anotasi dataset ini tersusun secara sistematis dan terstandarisasi sehingga memudahkan proses integrasi dengan berbagai framework deep learning. Selain itu, dataset COCO juga didukung secara luas oleh komunitas riset computer vision, sehingga hasil evaluasi yang diperoleh dapat dibandingkan secara langsung dengan penelitian lain. Berbagai penelitian terbaru masih menggunakan COCO sebagai benchmark utama dalam pengembangan model pose estimation modern (Xu et al., 2024; Zheng et al., 2023).
 2.2.5.2 Struktur Anotasi Keypoint pada Dataset COCO
-      Dalam tugas HPE, dataset COCO mendefinisikan 17 keypoint tubuh manusia yang merepresentasikan titik-titik sendi utama pada tubuh. Keypoint tersebut mencakup bagian kepala, tubuh bagian atas, hingga anggota gerak bawah, sebagaimana Gambar X.
+      Dalam tugas HPE, dataset COCO mendefinisikan 17 keypoint tubuh manusia yang merepresentasikan titik-titik sendi utama pada tubuh. Keypoint tersebut mencakup bagian kepala, tubuh bagian atas, hingga anggota gerak bawah sebagaimana ilustrasi standar COCO 17 keypoint.
 
 Gambar 1. Keypoint pada Tubuh Manusia
       Ketujuh belas keypoint tersebut meliputi hidung (nose), mata kiri dan kanan (left eye, right eye), telinga kiri dan kanan (left ear, right ear), bahu kiri dan kanan (left shoulder, right shoulder), siku kiri dan kanan (left elbow, right elbow), pergelangan tangan kiri dan kanan (left wrist, right wrist), pinggul kiri dan kanan (left hip, right hip), lutut kiri dan kanan (left knee, right knee), serta pergelangan kaki kiri dan kanan (left ankle, right ankle).
@@ -339,85 +338,73 @@ Gambar 1. Keypoint pada Tubuh Manusia
       PCK merupakan salah satu metrik evaluasi yang banyak digunakan dalam penelitian human pose estimation, khususnya pada dataset seperti MPII Human Pose Dataset. Metrik ini mengukur persentase keypoint yang berhasil diprediksi dengan benar oleh model berdasarkan jarak antara koordinat keypoint prediksi dan koordinat keypoint referensi (ground truth). Konsep dasar PCK adalah bahwa sebuah keypoint dianggap benar apabila jarak antara prediksi dan referensi berada di bawah ambang batas tertentu yang telah ditentukan sebelumnya (Andriluka et al., 2014).
       Dalam penerapannya, jarak antara keypoint prediksi dan ground truth dihitung menggunakan jarak Euclidean pada ruang dua dimensi. Nilai jarak ini kemudian dibandingkan dengan ambang batas yang biasanya dinormalisasi terhadap ukuran tubuh manusia dalam citra. Normalisasi ini penting karena ukuran objek manusia pada gambar dapat bervariasi tergantung jarak kamera, perspektif, maupun resolusi citra. Dengan melakukan normalisasi terhadap ukuran tubuh, evaluasi dapat dilakukan secara lebih konsisten pada berbagai ukuran objek.
       Secara matematis, nilai PCK dapat dihitung menggunakan persamaan berikut:
-      PCK="Jumlah keypoint yang terdeteksi benar" /"Jumlah seluruh keypoint"  100%
+      PCK = (N_correct / N_total) x 100%
 
       Sebuah keypoint dianggap benar apabila memenuhi kondisi:
-      d_i=aL
+      d_i <= alpha * L
 dengan:
-* d_i= jarak Euclidean antara keypoint prediksi dan ground truth
-* L= ukuran referensi tubuh manusia
-* a= parameter ambang batas (0.1-0.5)
+* d_i = jarak Euclidean antara keypoint prediksi dan ground truth
+* L = ukuran referensi tubuh manusia
+* alpha = parameter ambang batas (0.1-0.5)
       Pendekatan ini memungkinkan evaluasi yang relatif sederhana dan intuitif karena hanya memerlukan perbandingan jarak antara keypoint prediksi dan referensi. Dalam beberapa penelitian, variasi dari metrik PCK juga digunakan untuk meningkatkan konsistensi evaluasi. Salah satu variasi yang umum adalah PCKh, yaitu metrik PCK yang menggunakan ukuran kepala sebagai faktor normalisasi jarak. Pendekatan ini digunakan pada dataset MPII karena ukuran kepala dianggap relatif stabil sebagai referensi skala tubuh manusia dalam citra (Andriluka et al., 2014). Nilai PCK yang lebih tinggi menunjukkan bahwa model memiliki kemampuan yang lebih baik dalam memprediksi posisi keypoint tubuh manusia secara akurat. 
-      Metrik PCK sering digunakan sebagai indikator utama dalam evaluasi performa model pose estimation pada berbagai penelitian di bidang computer vision. Misalkan sebuah model HPE memprediksi 6 keypoint tubuh manusia pada sebuah citra uji. Setelah dibandingkan dengan ground truth, diperoleh jarak kesalahan prediksi sebagai berikut:
-Keypoint
-Error (pixel)
-Ambang Batas
-Bahu kiri
-8
-15
-Bahu kanan
-9
-15
-Siku kiri
-20
-15
-Siku kanan
-12
-15
-Pergelangan tangan kiri
-25
-15
-Pergelangan tangan kanan
-13
-15
-      Berdasarkan data diatas, keypoint yang memenuhi kondisi d_i=15 yaitu: bahu kiri, bahu kanan, siku kanan, dan pergelangan tangan kanan, dengan 
-- Jumlah keypoint benar = 4, 
-- Jumlah keypoint total = 6
-      Sehingga:
-      PCK=4/6 100%=66.7%
-      Nilai PCK sebesar 66,7% menunjukkan bahwa model berhasil memprediksi sekitar dua pertiga keypoint tubuh manusia dengan akurasi yang berada dalam batas toleransi kesalahan yang telah ditentukan.
+      Metrik PCK sering digunakan sebagai indikator utama dalam evaluasi performa model pose estimation pada berbagai penelitian di bidang computer vision. Agar konsisten dengan konteks penelitian ini, contoh berikut menggunakan skenario video uji yang serupa.
+
+Contoh 1 (single-person, terang):
+      Pada satu frame dari video SP_T_Jongkok_1, terdapat 13 keypoint aktif (v_i > 0). Setelah dibandingkan terhadap ground truth target actor, 11 keypoint berada di bawah ambang jarak PCK.
+      Maka:
+      PCK = (11/13) x 100% = 84.62%
+
+Contoh 2 (multi-person, redup):
+      Pada satu frame dari video MP_R_PushUp_1, setelah proses matching target actor dilakukan, terdapat 12 keypoint aktif yang dievaluasi dan 8 di antaranya memenuhi ambang PCK.
+      Maka:
+      PCK = (8/12) x 100% = 66.67%
+
+      Dua contoh ini menunjukkan bahwa nilai PCK sangat dipengaruhi oleh kondisi adegan. Pada skenario multi-person redup, oklusi dan kualitas citra yang menurun cenderung menurunkan jumlah keypoint yang lolos ambang benar.
 2.2.6.2 Object Keypoint Similarity (OKS)
       Selain PCK, metrik evaluasi yang sangat penting dalam penelitian pose estimation modern adalah OKS. Metrik ini diperkenalkan dalam protokol evaluasi dataset COCO dan saat ini menjadi standar evaluasi utama dalam berbagai penelitian human pose estimation. OKS memiliki konsep yang mirip dengan metrik Intersection over Union (IoU) yang digunakan dalam evaluasi object detection. Namun, jika IoU mengukur kesesuaian antara dua bounding box, OKS mengukur tingkat kesamaan antara dua set keypoint tubuh manusia. Dengan kata lain, OKS mengevaluasi seberapa dekat posisi keypoint yang diprediksi oleh model terhadap posisi keypoint pada ground truth (Lin et al., 2014).
       Perhitungan OKS tidak hanya mempertimbangkan jarak antara keypoint prediksi dan referensi, tetapi juga memperhitungkan beberapa faktor penting lainnya, yaitu: (1) Skala objek manusia dalam citra, yang biasanya dihitung berdasarkan luas area bounding box manusia; (2) Tingkat sensitivitas tiap keypoint, karena beberapa bagian tubuh seperti pergelangan tangan atau pergelangan kaki lebih sulit dideteksi dibandingkan bagian tubuh yang lebih stabil seperti bahu atau pinggul; (3) Visibilitas keypoint, yaitu apakah keypoint tersebut terlihat jelas, tertutup sebagian, atau tidak terlihat sama sekali.
       Rumus perhitungan OKS dapat dinyatakan sebagai berikut:
-      OKS=(?_i e^(-(d_i^2)/(2s^2 k_i^2 ))  d(v_i>0))/(?_i ?d(? v_i>0))
+      OKS = [sum_i (exp(-(d_i^2)/(2*s^2*k_i^2)) * 1(v_i>0))] / [sum_i 1(v_i>0)]
       dengan:
-* d_i= jarak Euclidean antara keypoint prediksi dan ground truth
-* s= skala objek manusia
-* k_i= konstanta sensitivitas keypoint
-* v_i= nilai visibilitas keypoint
-* d(v_i>0)= fungsi indikator yang bernilai 1 jika keypoint terlihat
+* d_i = jarak Euclidean antara keypoint prediksi dan ground truth
+* s = skala objek manusia
+* k_i = konstanta sensitivitas keypoint
+* v_i = nilai visibilitas keypoint
+* 1(v_i>0) = fungsi indikator yang bernilai 1 jika keypoint terlihat
       Pendekatan ini membuat evaluasi pose estimation menjadi lebih robust terhadap variasi pose tubuh manusia, kondisi oklusi antar objek, serta perbedaan ukuran manusia dalam citra. Oleh karena itu, OKS dianggap lebih representatif dalam mengukur performa model pose estimation pada kondisi dunia nyata (Cao et al., 2019; Sun et al., 2019).
-      Misalkan terdapat 3 keypoint yang dievaluasi pada satu objek manusia dengan parameter sebagai berikut:
-Keypoint
-Jarak d_i
-k_i
-Bahu
-5
-0.26
-Siku
-10
-0.25
-Pergelangan tangan
-15
-0.35
-      Misalkan skala objek manusia s=100. Maka perhitungan masing-masing komponen OKS:
-Bahu
-=
-e^(-5^2/(2(100)^2 (0.26)^2 )) 0.96
-Siku
-=
-e^(-10^2/(2(100)^2 (0.25)^2 )) 0.92
-Pergelangan Tangan
-=
-e^(-15^2/(2(100)^2 (0.35)^2 )) 0.91
-Sehingga OKS
-=
-(0.96+0.92+0.91)/3
+      Agar konsisten dengan konteks penelitian ini, ilustrasi berikut menggunakan skenario frame multi-person redup setelah proses matching target actor dilakukan.
 
-= 
-0.93
-      Nilai OKS sebesar 0.93 menunjukkan bahwa prediksi keypoint model memiliki kesesuaian yang sangat tinggi dengan ground truth.
+Contoh (multi-person, redup):
+      Pada satu frame dari video MP_R_DudukBerdiri_1, diasumsikan terdapat 4 keypoint aktif yang dievaluasi untuk target actor dengan skala objek s = 120. Parameter contoh:
+* Bahu: d_i = 12, k_i = 0.26
+* Siku: d_i = 22, k_i = 0.25
+* Pergelangan tangan: d_i = 28, k_i = 0.35
+* Pinggul: d_i = 18, k_i = 0.25
+
+      Nilai komponen OKS per keypoint:
+* Bahu: exp(-(12^2)/(2*120^2*0.26^2)) = 0.9287
+* Siku: exp(-(22^2)/(2*120^2*0.25^2)) = 0.7643
+* Pergelangan tangan: exp(-(28^2)/(2*120^2*0.35^2)) = 0.8007
+* Pinggul: exp(-(18^2)/(2*120^2*0.25^2)) = 0.8353
+
+      Sehingga:
+      OKS = (0.9287 + 0.7643 + 0.8007 + 0.8353)/4 = 0.8323
+
+      Nilai OKS sebesar 0.8323 menunjukkan bahwa prediksi keypoint masih cukup dekat terhadap ground truth target actor, meskipun kondisi frame berada pada skenario multi-person dan pencahayaan redup.
+
+2.2.6.3 Skema Evaluasi Single-Person dan Multi-Person
+      Pada penelitian ini, perhitungan OKS dan PCK menggunakan prinsip dasar yang sama, namun cara memilih pose prediksi yang dievaluasi dibedakan antara skenario single-person dan multi-person.
+
+1. Skenario single-person
+      Pada backend single-person, sistem umumnya menghasilkan satu kandidat pose utama pada setiap frame. Kandidat tersebut langsung diperlakukan sebagai prediksi target actor, kemudian metrik OKS dan PCK dihitung terhadap ground truth frame yang sama.
+
+2. Skenario multi-person
+      Pada backend multi-person, sistem dapat menghasilkan beberapa kandidat pose dalam satu frame. Karena penelitian ini mengevaluasi target actor tertentu, dilakukan proses matching terlebih dahulu untuk memilih kandidat prediksi yang mewakili target actor. Matching dilakukan menggunakan IoU bounding box tertinggi terhadap ground truth target actor; jika IoU tidak memadai, digunakan jarak pusat bounding box terdekat sebagai strategi cadangan. Setelah kandidat target actor terpilih, barulah OKS dan PCK dihitung.
+
+3. Penanganan frame tanpa kecocokan
+      Jika pada frame multi-person tidak ditemukan kandidat yang layak dicocokkan ke target actor, frame diberi status tidak cocok (no_pred_match). Frame ini tidak digunakan untuk rata-rata frame yang valid, tetapi tetap berkontribusi pada indikator reliabilitas seperti matched frame rate dan missing keypoint rate.
+
+      Dengan skema ini, evaluasi single-person dan multi-person tetap adil, karena metrik selalu dihitung terhadap target actor yang sama, bukan terhadap individu lain yang kebetulan terdeteksi di dalam frame.
 2.2.7 Average Precision (AP)
       Dalam protokol evaluasi dataset COCO, metrik OKS digunakan untuk menghitung AP pada berbagai ambang batas. Pendekatan ini memungkinkan evaluasi performa model dilakukan secara lebih komprehensif karena model tidak hanya diuji pada satu tingkat toleransi kesalahan.
       Average Precision dihitung berdasarkan kurva precision-recall yang diperoleh dari berbagai ambang batas nilai OKS. Dalam evaluasi pose estimation, ambang batas yang umum digunakan meliputi AP@0.50, AP@0.75, dan AP@[0.50:0.95]. Nilai AP@0.50 menunjukkan bahwa sebuah prediksi dianggap benar apabila nilai OKS lebih besar dari 0.50, sedangkan AP@0.75 menggunakan ambang batas yang lebih ketat.
@@ -462,7 +449,7 @@ METODE PENELITIAN
 2. Pengambilan Data Video
       Data penelitian dikumpulkan dalam bentuk video yang merekam pelaksanaan setiap pose dinamis dari awal hingga akhir gerakan dengan resolusi 1280 x 720 piksel dengan frame rate 30 FPS. Untuk setiap pose, dilakukan perekaman video pada empat kombinasi kondisi pengujian, yaitu satu orang dengan pencahayaan terang, satu orang dengan pencahayaan redup, tiga orang dengan pencahayaan terang, dan tiga orang dengan pencahayaan redup. Pada kondisi multi-orang, satu subjek bertindak sebagai aktor utama yang melakukan pose, sementara dua subjek lainnya berada dalam frame untuk menciptakan kondisi oklusi dan kepadatan visual yang terkontrol.
 3. Anotasi Ground Truth
-      Video setiap pose dan kondisi yang diambil, dilakukan anotasi secara manual mengguakan platform Computer Vision Annotation Tool (CVAT) untuk menentukan koordinat keypoint tubuh manusia. Anotasi dilakukan berdasarkan standar COCO 17 keypoint, yang digunakan sebagai acuan tunggal (ground truth) untuk seluruh algoritma yang diuji. Pemilihan standar ini bertujuan untuk menjamin konsistensi dan keadilan dalam proses evaluasi kinerja antar algoritma.
+      Video setiap pose dan kondisi yang diambil, dilakukan anotasi secara manual menggunakan platform Computer Vision Annotation Tool (CVAT) untuk menentukan koordinat keypoint tubuh manusia. Anotasi dilakukan berdasarkan standar COCO 17 keypoint, yang digunakan sebagai acuan tunggal (ground truth) untuk seluruh algoritma yang diuji. Pemilihan standar ini bertujuan untuk menjamin konsistensi dan keadilan dalam proses evaluasi kinerja antar algoritma.
 4. Pengujian Algoritma HPE
       Setiap algoritma HPE dijalankan pada kumpulan video uji yang sama. Algoritma menghasilkan prediksi koordinat keypoint tubuh manusia untuk setiap frame uji. Untuk algoritma yang menghasilkan jumlah keypoint berbeda dari standar COCO, dilakukan pemetaan keypoint ke dalam 17 keypoint utama sesuai standar evaluasi.
 
@@ -470,7 +457,7 @@ METODE PENELITIAN
 5. Evaluasi dan Analisis Kinerja Algoritma
       Hasil prediksi keypoint dibandingkan dengan data ground truth menggunakan metrik evaluasi Object Keypoint Similarity (OKS) dan Percentage of Correct Keypoints (PCK). Nilai evaluasi dihitung pada tingkat frame dan selanjutnya dirata-ratakan untuk memperoleh kinerja algoritma pada setiap pose dan kondisi pengujian. Selain itu dilakukan juga penilaian daya komputasi berdasarkan rerata Frame Per Second (FPS) selama algoritma berjalan pada video uji.
 6. Analisis Statistik dan Penarikan Kesimpulan
-      Data hasil evaluasi dianalisis menggunakan statistik deskriptif dan statistik inferensial untuk menguji perbedaan kinerja antar algoritma dan antar kondisi pengujian. Hasil analisis kemudian diinterpretasikan untuk menjawab rumusan masalah penelitian dan menarik kesimpulan yang selaras dengan tujuan penelitian.
+      Pada tahap sidang, data hasil evaluasi dianalisis menggunakan statistik deskriptif komparatif untuk menguji perbedaan kinerja antar algoritma dan antar kondisi pengujian. Analisis statistik inferensial diposisikan sebagai tahap lanjutan setelah cakupan eksperimen penuh (10 algoritma, 9 pose) diselesaikan.
 
 3.2 Lokasi dan Waktu Penelitian
       Seluruh proses eksperimen komputasi, termasuk pemrosesan data dan evaluasi algoritma, akan dilaksanakan di Laboratorium Digital Center Universitas Negeri Semarang. Adapun proses pengumpulan data primer, yaitu perekaman video, akan dilakukan di berbagai lokasi di ruang gedung Digital Center UNNES dengan variasi lampu menyala dan lampu mati untuk memastikan cakupan variasi kondisi pencahayaan serta kondisi jumlah orang tunggal dan jamak. Rangkaian penelitian ini dijadwalkan akan berlangsung selama periode bulan November 2025 sampai Januari 2026.
@@ -634,24 +621,24 @@ b. Konsistensi penempatan keypoint pada frame-frame dengan pose serupa.
       Dalam penelitian ini, pencocokan tidak dilakukan menggunakan nilai OKS tertinggi secara langsung, melainkan melalui mekanisme pemilihan prediksi target actor sebelum metrik dihitung. Untuk backend multi-person, prediksi dipilih berdasarkan nilai Intersection over Union (IoU) tertinggi antara bounding box prediksi dan bounding box ground truth target actor. Jika informasi bounding box tidak memadai, digunakan jarak pusat bounding box terdekat sebagai strategi cadangan. Untuk backend single-person yang hanya menghasilkan satu pose pada setiap frame, prediksi tunggal tersebut langsung diperlakukan sebagai kandidat evaluasi. Pendekatan ini dipilih agar evaluasi pada skenario multi-person tetap adil dan tidak keliru membandingkan ground truth target actor dengan skeleton milik individu lain.
 3.8.2 Perhitungan Object Keypoint Similarity (OKS)
       OKS digunakan untuk mengukur tingkat kesesuaian antara keypoint hasil prediksi algoritma dan ground truth. OKS dihitung berdasarkan jarak Euclidean antara pasangan keypoint yang bersesuaian, yang dinormalisasi terhadap skala objek dan sensitivitas masing-masing keypoint.
-      Rumus perhitungan OKS dinyatakan sebagaimana pada perasamaan (3.1):
-OKS=(?_i ?exp?? (-(d_i^2)/(2s^2 k_i^2 )) d(v_i>0))/(?_i ?d(? v_i>0))
+      Rumus perhitungan OKS dinyatakan sebagaimana pada persamaan (3.1):
+OKS = [sum_i (exp(-(d_i^2)/(2*s^2*k_i^2)) * 1(v_i>0))] / [sum_i 1(v_i>0)]
 (3.1)
       dengan keterangan:
 * d_i adalah jarak Euclidean antara keypoint ke-i hasil prediksi dan ground truth,
 * s adalah skala objek (berkaitan dengan ukuran tubuh manusia dalam frame),
 * k_i adalah konstanta sensitivitas untuk keypoint ke-i berdasarkan standar COCO,
 * v_i menunjukkan visibilitas keypoint ke-i, dan
-* d( ) adalah fungsi indikator yang bernilai 1 jika keypoint terlihat dan 0 jika tidak.
+* 1(v_i>0) adalah fungsi indikator yang bernilai 1 jika keypoint terlihat dan 0 jika tidak.
       Nilai OKS berada pada rentang 0 hingga 1. Nilai yang lebih tinggi menunjukkan tingkat kesesuaian keypoint yang lebih baik antara hasil prediksi algoritma dan ground truth. Dalam penelitian ini, nilai OKS dihitung pada tingkat frame dan selanjutnya dirata-ratakan untuk memperoleh nilai kinerja algoritma pada setiap pose dan kondisi pengujian.
 3.8.3 Perhitungan Percentage of Correct Keypoints (PCK)
       Selain OKS, penelitian ini menggunakan metrik PCK untuk mengukur akurasi estimasi pose. PCK menghitung persentase keypoint yang terdeteksi dengan benar berdasarkan ambang batas jarak tertentu antara prediksi dan ground truth.
       Rumus perhitungan PCK dinyatakan sebagaimana persamaan (2):
-PCK=N_"correct" /N_"total"   100%
+PCK = (N_correct / N_total) x 100%
 (3.2)
       dengan keterangan:
-* N_"correct"  adalah jumlah keypoint yang terdeteksi dengan benar, dan
-* N_"total"  adalah total keypoint yang dievaluasi.
+* N_correct adalah jumlah keypoint yang terdeteksi dengan benar, dan
+* N_total adalah total keypoint yang dievaluasi.
       Suatu keypoint dianggap benar apabila jarak antara prediksi dan ground truth berada di bawah ambang batas yang telah ditentukan dan dinormalisasi terhadap ukuran tubuh manusia. Nilai PCK dinyatakan dalam bentuk persentase, di mana nilai yang lebih tinggi menunjukkan akurasi estimasi pose yang lebih baik.
 3.8.4 Agregasi Hasil Evaluasi
       Nilai OKS dan PCK dihitung untuk setiap frame. Selanjutnya, nilai-nilai tersebut diagregasi dengan cara dirata-ratakan untuk memperoleh:
@@ -670,8 +657,9 @@ HASIL DAN PEMBAHASAN
 
 4.1 Deskripsi Umum Data Hasil Pengujian
       Pengujian pada penelitian ini dilakukan terhadap sembilan algoritma *human pose estimation* yang telah memiliki hasil lengkap pada dataset penelitian, yaitu AlphaPose, BlazePose, EfficientPose, HRNet, MediaPipe Pose, MoveNet Thunder, OpenPose, PoseNet, dan YOLOv8-Pose. Seluruh algoritma diuji pada 32 video uji yang dibentuk dari empat kelompok aktivitas, yaitu DudukBerdiri, Jongkok, PushUp, dan Yoga, dengan kombinasi kondisi jumlah subjek (single-person dan multi-person), pencahayaan (terang dan redup), serta dua pengulangan pada setiap kombinasi.
-      Hasil evaluasi diperoleh dalam dua tingkat, yaitu tingkat ringkasan video melalui berkas `summary_all.csv` dan tingkat detail frame melalui `metrics_per_frame.csv`. Metrik yang digunakan pada penelitian ini meliputi Object Keypoint Similarity (OKS), Percentage of Correct Keypoints (PCK), *matched frame rate*, rasio *missing keypoints*, rerata latensi, dan rerata *frame per second* (FPS). Kombinasi metrik tersebut memungkinkan evaluasi yang tidak hanya berfokus pada ketepatan spasial keypoint, tetapi juga pada reliabilitas kecocokan target actor dan efisiensi komputasi.
+      Hasil evaluasi diperoleh dalam dua tingkat, yaitu tingkat ringkasan video melalui berkas ringkasan hasil akhir dan tingkat detail frame melalui `metrics_per_frame.csv`. Metrik yang digunakan pada penelitian ini meliputi Object Keypoint Similarity (OKS), Percentage of Correct Keypoints (PCK), *matched frame rate*, rasio *missing keypoints*, rerata latensi, dan rerata *frame per second* (FPS). Kombinasi metrik tersebut memungkinkan evaluasi yang tidak hanya berfokus pada ketepatan spasial keypoint, tetapi juga pada reliabilitas kecocokan target actor dan efisiensi komputasi.
       Secara umum, hasil eksperimen menunjukkan tiga kelompok performa yang cukup jelas. Kelompok pertama adalah algoritma berakurasi tinggi namun lambat, yaitu HRNet dan AlphaPose. Kelompok kedua adalah algoritma dengan keseimbangan akurasi dan kecepatan yang lebih baik, terutama YOLOv8-Pose, BlazePose, dan MediaPipe Pose. Kelompok ketiga adalah algoritma yang pada konfigurasi eksperimen ini menghasilkan performa akurasi rendah, yaitu EfficientPose, MoveNet Thunder, PoseNet, dan OpenPose.
+      MediaPipe Pose dan BlazePose diperlakukan sebagai dua backend yang berbeda. Pada hasil akhir, keduanya memiliki nilai akurasi agregat yang identik, tetapi tetap menunjukkan profil latensi dan FPS yang berbeda.
 
 4.1.1 Rekapitulasi Hasil Global Seluruh Algoritma
       Tabel 4.1 menyajikan ringkasan performa rata-rata seluruh algoritma pada 32 video uji.
@@ -680,85 +668,91 @@ HASIL DAN PEMBAHASAN
 
 | Algoritma | OKS Mean | PCK Global | Matched Frame Rate | Missing KPT Rate | Latency Mean (ms) | FPS Mean |
 |---|---:|---:|---:|---:|---:|---:|
-| HRNet | 0.7837 | 0.9423 | 0.9903 | 0.0000 | 355.74 | 2.85 |
-| AlphaPose | 0.7716 | 0.9533 | 0.9899 | 0.0001 | 360.40 | 2.81 |
-| YOLOv8-Pose | 0.6310 | 0.8626 | 0.9896 | 0.0006 | 26.16 | 38.95 |
-| BlazePose | 0.5720 | 0.7391 | 0.9507 | 0.1138 | 31.59 | 32.52 |
-| MediaPipe Pose | 0.5546 | 0.7153 | 0.9251 | 0.1522 | 19.96 | 52.36 |
-| MoveNet Thunder | 0.3500 | 0.5682 | 0.9903 | 0.2413 | 122.57 | 8.17 |
-| EfficientPose | 0.2395 | 0.5063 | 0.9903 | 0.0000 | 30.01 | 33.40 |
-| PoseNet | 0.0056 | 0.0220 | 0.9903 | 0.0000 | 12.31 | 81.90 |
-| OpenPose | 0.0053 | 0.0072 | 0.0077 | 0.9929 | 2322996.89 | 0.00 |
+| HRNet | 0.7837 | 0.9423 | 0.9903 | 0.0000 | 358.51 | 2.81 |
+| AlphaPose | 0.7598 | 0.9499 | 0.9899 | 0.0001 | 362.69 | 2.79 |
+| YOLOv8-Pose | 0.6310 | 0.8626 | 0.9896 | 0.0006 | 27.49 | 36.94 |
+| BlazePose | 0.5720 | 0.7391 | 0.9507 | 0.1138 | 30.74 | 33.76 |
+| MediaPipe Pose | 0.5720 | 0.7391 | 0.9507 | 0.1138 | 33.28 | 31.81 |
+| MoveNet Thunder | 0.2550 | 0.4907 | 0.9903 | 0.2476 | 51.50 | 19.45 |
+| EfficientPose | 0.2395 | 0.5063 | 0.9903 | 0.0000 | 29.80 | 33.80 |
+| PoseNet | 0.0154 | 0.0465 | 0.9903 | 0.0000 | 15.77 | 64.07 |
+| OpenPose | 0.0053 | 0.0072 | 0.0077 | 0.9929 | 2079925.57 | 0.00 |
 
-![](grafik/grafik_global_algoritma.png)
+![](grafik/grafik_3_perbandingan_metrik_per_algoritma.png)
 
-*Gambar 4.1. Perbandingan metrik global OKS, PCK, dan FPS antar algoritma.*
+*Gambar 4.1. Grafik Perbandingan Metrik Evaluasi per Algoritma.*
+
+![](grafik/grafik_1_performa_algoritma_4_pose.png)
+
+*Gambar 4.2. Grafik Performa Masing-Masing Algoritma terhadap 4 Pose.*
 
       Berdasarkan Tabel 4.1, HRNet memperoleh nilai OKS tertinggi, sedangkan AlphaPose memperoleh nilai PCK global tertinggi. Temuan ini menunjukkan bahwa kedua model berbasis *heatmap* dan top-down tersebut memiliki kemampuan paling baik dalam mempertahankan ketelitian lokalisasi keypoint pada seluruh skenario pengujian. Namun, keunggulan akurasi tersebut dibayar dengan biaya komputasi yang tinggi, terlihat dari FPS yang hanya berada di sekitar 2,8 frame per detik.
-      YOLOv8-Pose menempati posisi ketiga dari sisi akurasi, tetapi jauh lebih unggul dari sisi efisiensi dibanding HRNet dan AlphaPose. Dengan OKS 0,6310, PCK 0,8626, dan FPS 38,95, YOLOv8-Pose menunjukkan kompromi terbaik antara ketepatan dan kecepatan pada konfigurasi eksperimen ini. BlazePose dan MediaPipe Pose berada pada kelompok menengah: keduanya jauh lebih cepat dibanding model heatmap berat, tetapi akurasinya turun cukup nyata pada kondisi sulit.
+      YOLOv8-Pose menempati posisi ketiga dari sisi akurasi, tetapi jauh lebih unggul dari sisi efisiensi dibanding HRNet dan AlphaPose. Dengan OKS 0,6310, PCK 0,8626, dan FPS 36,94, YOLOv8-Pose menunjukkan kompromi terbaik antara ketepatan dan kecepatan pada konfigurasi eksperimen ini. BlazePose dan MediaPipe Pose berada pada kelompok menengah: keduanya lebih cepat dibanding model heatmap berat, tetapi akurasinya masih berada di bawah YOLOv8-Pose.
       PoseNet dan OpenPose menunjukkan performa yang sangat rendah pada konfigurasi implementasi yang digunakan dalam penelitian ini. Pada PoseNet, walaupun FPS sangat tinggi, akurasinya mendekati nol sehingga tidak layak dipandang sebagai kandidat terbaik untuk kebutuhan evaluasi pose pada dataset ini. Pada OpenPose, rendahnya *matched frame rate* dan tingginya *missing keypoint rate* menunjukkan bahwa backend tersebut praktis gagal memberikan keluaran yang dapat dicocokkan secara konsisten terhadap target actor pada konfigurasi CPU Windows yang digunakan.
-      Visualisasi pada Gambar 4.1 memperjelas adanya trade-off yang kuat antara akurasi dan kecepatan. Dua algoritma teratas dari sisi akurasi, yaitu HRNet dan AlphaPose, justru berada pada posisi terbawah dari sisi FPS, sedangkan PoseNet memperlihatkan kondisi sebaliknya: sangat cepat tetapi tidak akurat. Pada titik tengah, YOLOv8-Pose tampak paling menonjol karena masih menjaga nilai OKS dan PCK yang tinggi sekaligus menawarkan FPS yang jauh lebih praktis.
+      Visualisasi pada Gambar 4.1 memperjelas adanya trade-off yang kuat antara akurasi dan kecepatan. Dua algoritma teratas dari sisi akurasi, yaitu HRNet dan AlphaPose, justru berada pada posisi terbawah dari sisi FPS, sedangkan PoseNet memperlihatkan kondisi sebaliknya: sangat cepat tetapi tidak akurat. Pada titik tengah, YOLOv8-Pose tampak paling menonjol karena masih menjaga nilai OKS dan PCK yang tinggi sekaligus menawarkan FPS yang jauh lebih praktis. Sementara itu, Gambar 4.2 memperlihatkan konsistensi performa gabungan setiap algoritma pada keempat pose, sehingga pola unggul-lemah antar algoritma dapat dibandingkan lintas pose secara langsung.
 
 4.2 Hasil Evaluasi Kinerja Algoritma Berdasarkan OKS
 4.2.1 Nilai OKS Rata-Rata Per Algoritma
-      Nilai OKS digunakan untuk menilai ketepatan spasial prediksi keypoint dengan mempertimbangkan jarak, skala objek, dan sensitivitas tiap joint. Secara global, HRNet (0,7837) dan AlphaPose (0,7716) menjadi dua algoritma dengan nilai OKS tertinggi. Keduanya diikuti oleh YOLOv8-Pose (0,6310), BlazePose (0,5720), dan MediaPipe Pose (0,5546). Urutan ini menunjukkan bahwa model berbasis heatmap resolusi tinggi masih menjadi pilihan terbaik untuk akurasi, sedangkan model deteksi satu tahap seperti YOLOv8-Pose dapat menawarkan performa menengah-atas dengan biaya komputasi yang jauh lebih rendah.
-      EfficientPose hanya mencapai OKS 0,2395. Walaupun backend ini memiliki *matched frame rate* yang tinggi, kualitas lokalisasi keypoint masih tertinggal cukup jauh dari model lain. Hal ini mengindikasikan bahwa prediksi pose memang selalu dihasilkan, tetapi posisi keypoint yang diprediksi sering kali belum cukup dekat dengan ground truth. Pada MoveNet Thunder, nilai OKS 0,3500 menunjukkan bahwa model masih mampu menangkap struktur pose secara kasar, tetapi kurang stabil untuk kebutuhan pengukuran yang menuntut presisi lebih tinggi.
+      Nilai OKS digunakan untuk menilai ketepatan spasial prediksi keypoint dengan mempertimbangkan jarak, skala objek, dan sensitivitas tiap joint. Secara global, HRNet (0,7837) dan AlphaPose (0,7598) menjadi dua algoritma dengan nilai OKS tertinggi. Keduanya diikuti oleh YOLOv8-Pose (0,6310), BlazePose (0,5720), dan MediaPipe Pose (0,5720). Urutan ini menunjukkan bahwa model berbasis heatmap resolusi tinggi masih menjadi pilihan terbaik untuk akurasi, sedangkan model deteksi satu tahap seperti YOLOv8-Pose dapat menawarkan performa menengah-atas dengan biaya komputasi yang jauh lebih rendah.
+      EfficientPose hanya mencapai OKS 0,2395. Walaupun backend ini memiliki *matched frame rate* yang tinggi, kualitas lokalisasi keypoint masih tertinggal cukup jauh dari model lain. Hal ini mengindikasikan bahwa prediksi pose memang selalu dihasilkan, tetapi posisi keypoint yang diprediksi sering kali belum cukup dekat dengan ground truth. Pada MoveNet Thunder, nilai OKS 0,2550 menunjukkan bahwa model masih mampu menangkap struktur pose secara kasar, tetapi kurang stabil untuk kebutuhan pengukuran yang menuntut presisi lebih tinggi.
 
 4.2.2 OKS Berdasarkan Variasi Jumlah Orang
-      Seluruh algoritma, dengan intensitas yang berbeda-beda, mengalami penurunan performa saat berpindah dari skenario single-person ke multi-person. HRNet turun dari OKS 0,8305 pada single-person menjadi 0,7368 pada multi-person. AlphaPose juga turun dari 0,8115 menjadi 0,7318. Pada YOLOv8-Pose, penurunan dari 0,6856 ke 0,5764 masih tergolong moderat, sedangkan BlazePose dan MediaPipe menunjukkan penurunan yang lebih tajam.
-      Model single-person ringan seperti BlazePose dan MediaPipe cenderung lebih rentan terhadap keberadaan individu lain di dalam frame. BlazePose turun dari 0,7010 ke 0,4430, sedangkan MediaPipe turun dari 0,7009 ke 0,4084. Pola ini menunjukkan bahwa ketika terdapat lebih dari satu orang, algoritma yang didesain terutama untuk satu subjek utama menjadi lebih mudah keliru memilih aktor yang relevan atau kehilangan konsistensi pada bagian tubuh yang ter-oklusi.
+      Sebagian besar algoritma, dengan intensitas yang berbeda-beda, mengalami penurunan performa saat berpindah dari skenario single-person ke multi-person. HRNet turun dari OKS 0,8305 pada single-person menjadi 0,7368 pada multi-person. AlphaPose juga turun dari 0,7939 menjadi 0,7258. Pada YOLOv8-Pose, penurunan dari 0,6856 ke 0,5764 masih tergolong moderat, sedangkan BlazePose dan MediaPipe menunjukkan penurunan yang lebih tajam.
+      Model single-person ringan seperti BlazePose dan MediaPipe cenderung lebih rentan terhadap keberadaan individu lain di dalam frame. BlazePose turun dari 0,7010 ke 0,4430, sedangkan MediaPipe juga turun dari 0,7010 ke 0,4430. Pola ini menunjukkan bahwa ketika terdapat lebih dari satu orang, algoritma yang didesain terutama untuk satu subjek utama menjadi lebih mudah keliru memilih aktor yang relevan atau kehilangan konsistensi pada bagian tubuh yang ter-oklusi.
       Menariknya, EfficientPose hanya mengalami penurunan OKS yang kecil secara absolut (0,2753 ke 0,2038), tetapi hal tersebut tidak dapat langsung diartikan sebagai robust karena performa dasarnya memang sudah rendah sejak awal. Oleh karena itu, robust terhadap multi-person perlu dilihat bersama nilai akurasi absolut, bukan hanya besar selisihnya.
 
-![](grafik/grafik_oks_person_mode.png)
-
-*Gambar 4.2. Perbandingan OKS pada skenario single-person dan multi-person.*
-
-      Gambar 4.2 memperlihatkan bahwa hampir seluruh algoritma memiliki batang single-person yang lebih tinggi daripada multi-person. Perbedaan paling mencolok tampak pada BlazePose dan MediaPipe Pose, sedangkan HRNet, AlphaPose, dan YOLOv8-Pose menunjukkan penurunan yang lebih terkendali. Visual ini mendukung temuan bahwa skenario padat orang dan berpotensi oklusi tetap menjadi tantangan utama pada evaluasi pose 2D.
+      Jika dilihat pada komponen kondisi orang (Single-* vs Multi-*) di Gambar 4.3, hampir seluruh algoritma memiliki nilai OKS yang lebih baik pada skenario single-person daripada multi-person. Perbedaan paling mencolok tampak pada BlazePose dan MediaPipe Pose, sedangkan HRNet, AlphaPose, dan YOLOv8-Pose menunjukkan penurunan yang lebih terkendali. Visual ini mendukung temuan bahwa skenario padat orang dan berpotensi oklusi tetap menjadi tantangan utama pada evaluasi pose 2D.
 
 4.2.3 OKS Berdasarkan Variasi Pencahayaan (Terang vs Redup)
-      Pada faktor pencahayaan, semua algoritma menampilkan nilai OKS yang lebih baik pada kondisi terang dibandingkan redup. HRNet turun dari 0,8314 pada kondisi terang menjadi 0,7359 pada kondisi redup, sedangkan AlphaPose turun dari 0,8145 menjadi 0,7287. YOLOv8-Pose menunjukkan penurunan yang relatif kecil dari 0,6700 ke 0,5920, menandakan bahwa model ini cukup tangguh terhadap degradasi pencahayaan dibanding banyak model lain.
-      Di antara algoritma ringan, MoveNet Thunder memperlihatkan penurunan paling besar, dari OKS 0,4996 pada kondisi terang menjadi 0,2004 pada kondisi redup. MediaPipe juga turun cukup tajam dari 0,6419 ke 0,4673. Hal ini memperkuat argumen bahwa model regresi langsung yang sangat bergantung pada kualitas fitur visual lokal cenderung lebih sensitif terhadap hilangnya detail tekstur dan kontras saat cahaya menurun.
+      Pada faktor pencahayaan, hampir semua algoritma menampilkan nilai OKS yang lebih baik pada kondisi terang dibandingkan redup. HRNet turun dari 0,8314 pada kondisi terang menjadi 0,7359 pada kondisi redup, sedangkan AlphaPose turun dari 0,8070 menjadi 0,7127. YOLOv8-Pose menunjukkan penurunan yang relatif kecil dari 0,6700 ke 0,5920, menandakan bahwa model ini cukup tangguh terhadap degradasi pencahayaan dibanding banyak model lain.
+      Di antara algoritma ringan, MoveNet Thunder memperlihatkan penurunan paling besar, dari OKS 0,3650 pada kondisi terang menjadi 0,1449 pada kondisi redup. MediaPipe juga turun cukup tajam dari 0,6419 ke 0,5021. Hal ini memperkuat argumen bahwa model regresi langsung yang sangat bergantung pada kualitas fitur visual lokal cenderung lebih sensitif terhadap hilangnya detail tekstur dan kontras saat cahaya menurun.
 
-![](grafik/grafik_oks_pencahayaan.png)
+![](grafik/grafik_4_oks_kondisi_per_pose.png)
 
-*Gambar 4.3. Perbandingan OKS pada pencahayaan terang dan redup.*
+*Gambar 4.3. Grafik Perbandingan OKS per Kondisi untuk Setiap Pose.*
 
-      Melalui Gambar 4.3, pengaruh pencahayaan dapat diamati secara lebih intuitif. Selisih antara batang terang dan redup tampak cukup besar pada MoveNet Thunder, MediaPipe Pose, dan BlazePose, sedangkan YOLOv8-Pose menunjukkan jarak yang lebih kecil. Pola ini menegaskan bahwa robustness terhadap pencahayaan rendah bukan hanya ditentukan oleh kecepatan model, melainkan juga oleh kualitas representasi fitur dan stabilitas proses lokalisasi keypoint.
+      Melalui Gambar 4.3, pengaruh pencahayaan dapat diamati secara lebih intuitif melalui perbandingan kolom Terang dan Redup pada setiap pose. Selisih yang cukup besar terlihat pada MoveNet Thunder, MediaPipe Pose, dan BlazePose, sedangkan YOLOv8-Pose menunjukkan jarak yang lebih kecil. Pola ini menegaskan bahwa robustness terhadap pencahayaan rendah bukan hanya ditentukan oleh kecepatan model, melainkan juga oleh kualitas representasi fitur dan stabilitas proses lokalisasi keypoint.
 
 4.2.4 Pembahasan Pola Kinerja OKS
       Secara substantif, pola OKS memperlihatkan bahwa arsitektur yang mempertahankan representasi spasial kaya—seperti HRNet—atau memanfaatkan tahapan deteksi dan estimasi pose yang lebih presisi—seperti AlphaPose—lebih unggul pada tugas lokalisasi keypoint. Sebaliknya, model yang dioptimalkan untuk kecepatan tinggi mengalami penurunan lebih tajam ketika jumlah orang bertambah atau pencahayaan memburuk. Temuan ini konsisten dengan teori pada Bab II bahwa kompleksitas arsitektur memang sering berkorelasi positif dengan ketelitian spasial, terutama pada kondisi dunia nyata yang tidak ideal.
 
 4.3 Hasil Evaluasi Berdasarkan PCK
 4.3.1 PCK Global Per Algoritma
-      Pola pada PCK secara umum sejalan dengan OKS, tetapi memperlihatkan beberapa nuansa berbeda. AlphaPose memperoleh PCK global tertinggi sebesar 0,9533, sedikit di atas HRNet yang mencapai 0,9423. Nilai ini menunjukkan bahwa, walaupun HRNet sedikit lebih baik pada ketelitian spasial keseluruhan (OKS), AlphaPose lebih sering menempatkan keypoint dalam ambang jarak benar menurut definisi PCK.
-      YOLOv8-Pose kembali menunjukkan performa kuat dengan PCK 0,8626. BlazePose dan MediaPipe Pose menghasilkan PCK menengah, masing-masing 0,7391 dan 0,7153. MoveNet Thunder dan EfficientPose tertinggal pada kisaran 0,5682 dan 0,5063. PoseNet dan OpenPose kembali berada pada posisi terbawah dengan nilai PCK mendekati nol, sehingga tidak kompetitif pada dataset ini.
+      Pola pada PCK secara umum sejalan dengan OKS, tetapi memperlihatkan beberapa nuansa berbeda. AlphaPose memperoleh PCK global tertinggi sebesar 0,9499, sedikit di atas HRNet yang mencapai 0,9423. Nilai ini menunjukkan bahwa, walaupun HRNet lebih baik pada ketelitian spasial keseluruhan (OKS), AlphaPose lebih sering menempatkan keypoint dalam ambang jarak benar menurut definisi PCK.
+      YOLOv8-Pose kembali menunjukkan performa kuat dengan PCK 0,8626. BlazePose dan MediaPipe Pose menghasilkan PCK menengah dengan nilai yang identik, yaitu 0,7391. MoveNet Thunder dan EfficientPose tertinggal pada kisaran 0,4907 dan 0,5063. PoseNet dan OpenPose kembali berada pada posisi terbawah, sehingga tidak kompetitif pada dataset ini.
 
 4.3.2 PCK Berdasarkan Pose
-      Jika dilihat per aktivitas, Yoga cenderung menjadi aktivitas dengan akurasi tertinggi bagi model-model terbaik. HRNet mencapai PCK 0,9708 dan AlphaPose 0,9701 pada aktivitas ini. DudukBerdiri juga memberikan hasil tinggi bagi AlphaPose (0,9755), tetapi tidak bagi semua model ringan. Sebaliknya, PushUp menjadi aktivitas yang lebih menantang, terlihat dari turunnya nilai pada YOLOv8-Pose (0,6753), BlazePose (0,6287), MediaPipe Pose (0,6290), dan MoveNet Thunder (0,4496).
-      Aktivitas Jongkok secara umum lebih mudah ditangani oleh sebagian besar model. HRNet dan AlphaPose sama-sama mencapai PCK 0,9338, sementara YOLOv8-Pose mencapai 0,9209. Kemungkinan penyebabnya adalah pola geometri tubuh pada gerakan jongkok masih mempertahankan banyak keypoint utama di bidang pandang kamera dan tidak menimbulkan perubahan orientasi tubuh se-ekstrem PushUp.
+      Jika dilihat per aktivitas, Yoga cenderung menjadi aktivitas dengan akurasi tertinggi bagi model-model terbaik. HRNet mencapai PCK 0,9708 dan AlphaPose 0,9602 pada aktivitas ini. DudukBerdiri juga memberikan hasil tinggi bagi AlphaPose (0,9654), tetapi tidak bagi semua model ringan. Sebaliknya, PushUp menjadi aktivitas yang lebih menantang, terlihat dari turunnya nilai pada YOLOv8-Pose (0,6753), BlazePose (0,6287), MediaPipe Pose (0,6287), dan MoveNet Thunder (0,4256).
+      Aktivitas Jongkok secara umum lebih mudah ditangani oleh sebagian besar model. HRNet mencapai PCK 0,9338, AlphaPose 0,9325, dan YOLOv8-Pose 0,9209. Kemungkinan penyebabnya adalah pola geometri tubuh pada gerakan jongkok masih mempertahankan banyak keypoint utama di bidang pandang kamera dan tidak menimbulkan perubahan orientasi tubuh se-ekstrem PushUp.
 
 **Tabel 4.2. Rerata PCK per Aktivitas pada Seluruh Algoritma yang Dievaluasi**
 
 | Aktivitas | AlphaPose | HRNet | YOLOv8-Pose | BlazePose | MediaPipe Pose | MoveNet Thunder | EfficientPose | PoseNet | OpenPose |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| DudukBerdiri | 0.9755 | 0.9433 | 0.9471 | 0.6727 | 0.6720 | 0.4977 | 0.4377 | 0.0205 | 0.0067 |
-| Jongkok | 0.9338 | 0.9338 | 0.9209 | 0.8390 | 0.8385 | 0.7465 | 0.4681 | 0.0052 | 0.0072 |
-| PushUp | 0.9337 | 0.9213 | 0.6753 | 0.6287 | 0.6290 | 0.4496 | 0.7254 | 0.0395 | 0.0089 |
-| Yoga | 0.9701 | 0.9708 | 0.9069 | 0.8159 | 0.7219 | 0.5788 | 0.3939 | 0.0229 | 0.0061 |
+| DudukBerdiri | 0.9654 | 0.9433 | 0.9471 | 0.6727 | 0.6727 | 0.4436 | 0.4377 | 0.0231 | 0.0067 |
+| Jongkok | 0.9325 | 0.9338 | 0.9209 | 0.8390 | 0.8390 | 0.6774 | 0.4681 | 0.0254 | 0.0072 |
+| PushUp | 0.9414 | 0.9213 | 0.6753 | 0.6287 | 0.6287 | 0.4256 | 0.7254 | 0.0906 | 0.0089 |
+| Yoga | 0.9602 | 0.9708 | 0.9069 | 0.8159 | 0.8159 | 0.4162 | 0.3939 | 0.0470 | 0.0061 |
 
-![](grafik/grafik_heatmap_pck_aktivitas.png)
+![](grafik/grafik_5_pck_kondisi_per_pose.png)
 
-*Gambar 4.4. Heatmap PCK per aktivitas dan algoritma.*
+*Gambar 4.4. Grafik Perbandingan PCK per Kondisi untuk Setiap Pose.*
 
-      Heatmap pada Gambar 4.4 mempermudah pembacaan pola performa lintas aktivitas. Warna yang lebih gelap terkonsentrasi pada HRNet, AlphaPose, dan YOLOv8-Pose, sedangkan PoseNet dan OpenPose konsisten berada pada rentang sangat rendah. Visual ini juga memperjelas bahwa PushUp menjadi aktivitas yang relatif lebih sulit bagi beberapa model ringan, sementara Yoga dan DudukBerdiri cenderung menghasilkan PCK tinggi pada algoritma-akurasi tinggi.
+      Visualisasi pada Gambar 4.4 mempermudah pembacaan pola PCK lintas pose dan kondisi secara bersamaan. Nilai tinggi tetap terkonsentrasi pada HRNet, AlphaPose, dan YOLOv8-Pose, sedangkan PoseNet dan OpenPose konsisten berada pada rentang sangat rendah. Grafik ini juga menunjukkan bahwa kondisi multi-person redup cenderung menjadi kombinasi paling menantang bagi sebagian besar algoritma.
 
 4.3.3 Pembahasan PCK
-      Karena PCK memandang prediksi sebagai benar selama masih berada dalam ambang toleransi, metrik ini lebih menonjolkan stabilitas umum struktur pose dibanding ketelitian spasial halus. Itulah sebabnya AlphaPose bisa sedikit melampaui HRNet pada PCK walaupun HRNet unggul pada OKS. Dalam konteks aplikasi praktis, PCK tinggi penting ketika tujuan utama adalah memastikan posisi joint cukup akurat untuk klasifikasi gerak atau deteksi postur, bukan pengukuran biomekanik yang sangat presisi. Kehadiran Tabel 4.2 dan Gambar 4.4 secara bersamaan juga membantu menunjukkan bahwa pola performa tidak selalu identik di setiap aktivitas, sehingga kesimpulan sebaiknya tidak hanya diambil dari nilai global semata.
+      Karena PCK memandang prediksi sebagai benar selama masih berada dalam ambang toleransi, metrik ini lebih menonjolkan stabilitas umum struktur pose dibanding ketelitian spasial halus. Itulah sebabnya AlphaPose bisa sedikit melampaui HRNet pada PCK walaupun HRNet unggul pada OKS. Dalam konteks aplikasi praktis, PCK tinggi penting ketika tujuan utama adalah memastikan posisi joint cukup akurat untuk klasifikasi gerak atau deteksi postur, bukan pengukuran biomekanik yang sangat presisi. Kehadiran Tabel 4.2 dan Gambar 4.4 secara bersamaan juga membantu menunjukkan bahwa pola performa tidak selalu identik di setiap pose dan kondisi, sehingga kesimpulan sebaiknya tidak hanya diambil dari nilai global semata.
 
 4.4 Analisis Efisiensi Komputasi (FPS)
 4.4.1 FPS Rata-Rata Per Algoritma
-      Dari sisi kecepatan, PoseNet mencatat FPS tertinggi sebesar 81,90, diikuti MediaPipe Pose sebesar 52,36, YOLOv8-Pose sebesar 38,95, EfficientPose sebesar 33,40, dan BlazePose sebesar 32,52. Namun, FPS tinggi tidak selalu identik dengan kualitas deteksi yang baik. PoseNet menjadi contoh paling jelas: walaupun sangat cepat, akurasinya sangat rendah pada konfigurasi eksperimen ini.
-      Di antara algoritma dengan akurasi yang masih layak, MediaPipe Pose merupakan model tercepat. YOLOv8-Pose dan BlazePose berada sedikit di bawahnya, tetapi masih jauh lebih cepat dibanding HRNet dan AlphaPose. Sementara itu, HRNet dan AlphaPose hanya berada di kisaran 2,8 FPS, sehingga secara praktis lebih cocok untuk analisis offline daripada aplikasi real-time.
+      Dari sisi kecepatan, PoseNet mencatat FPS tertinggi sebesar 64,07, diikuti YOLOv8-Pose sebesar 36,94, EfficientPose sebesar 33,80, BlazePose sebesar 33,76, dan MediaPipe Pose sebesar 31,81. Namun, FPS tinggi tidak selalu identik dengan kualitas deteksi yang baik. PoseNet menjadi contoh paling jelas: walaupun cepat, akurasinya sangat rendah pada konfigurasi eksperimen ini.
+      Di antara algoritma dengan akurasi yang masih layak, YOLOv8-Pose merupakan model tercepat pada data akhir. BlazePose dan MediaPipe Pose berada sedikit di bawahnya, tetapi tetap jauh lebih cepat dibanding HRNet dan AlphaPose. Sementara itu, HRNet dan AlphaPose hanya berada di kisaran 2,8 FPS, sehingga secara praktis lebih cocok untuk analisis offline daripada aplikasi real-time.
+
+![](grafik/grafik_6_perbandingan_fps_per_pose.png)
+
+*Gambar 4.5. Grafik Perbandingan Rerata FPS untuk Setiap Pose.*
+
+      Gambar 4.5 menunjukkan bahwa pola efisiensi relatif antar algoritma cukup konsisten pada keempat pose. PoseNet tetap berada di posisi paling cepat pada hampir semua pose, diikuti kelompok cepat-menengah seperti YOLOv8-Pose, EfficientPose, BlazePose, dan MediaPipe Pose. Visual ini mempertegas bahwa analisis efisiensi sebaiknya tidak hanya dibaca dari satu nilai global, melainkan juga dibandingkan pada setiap pose.
 
 4.4.2 Trade-off Akurasi vs Kecepatan
       Trade-off utama pada penelitian ini tampak sangat jelas. HRNet dan AlphaPose adalah pilihan terbaik ketika prioritas utama adalah akurasi. Sebaliknya, MediaPipe Pose dan BlazePose lebih cocok ketika prioritas utama adalah kecepatan inferensi. Di antara kedua kutub tersebut, YOLOv8-Pose menjadi algoritma dengan kompromi paling seimbang: akurasinya jauh lebih tinggi dari MediaPipe dan BlazePose, tetapi kecepatannya tetap cukup tinggi untuk aplikasi yang mendekati real-time.
@@ -791,6 +785,12 @@ HASIL DAN PEMBAHASAN
 | Kondisi multi-person sulit | HRNet, AlphaPose, YOLOv8-Pose | Penurunan performa lebih terkendali pada skenario padat orang |
 | Kurang direkomendasikan pada konfigurasi ini | OpenPose, PoseNet | Akurasi sangat rendah atau keluaran tidak stabil pada pipeline evaluasi |
 
+![](grafik/grafik_2_perbandingan_algoritma_per_pose.png)
+
+*Gambar 4.6. Grafik Perbandingan Performa Antar Algoritma untuk Setiap Pose.*
+
+      Gambar 4.6 melengkapi Tabel 4.3 dengan menampilkan peringkat performa pada masing-masing pose. HRNet dan AlphaPose cenderung konsisten berada pada kelompok atas untuk hampir seluruh pose, sedangkan YOLOv8-Pose menunjukkan kompromi yang stabil antara akurasi dan kecepatan. Grafik ini juga menegaskan bahwa kekuatan relatif algoritma dapat berubah tipis antar pose, sehingga rekomendasi pemilihan algoritma idealnya mempertimbangkan profil pose dominan pada aplikasi target.
+
 4.6.2 Interpretasi Hasil (Mengaitkan dengan Teori)
       Hasil penelitian ini menguatkan teori pada Bab II bahwa tidak ada satu arsitektur yang unggul mutlak pada semua aspek. Model dengan struktur lebih kaya dan proses estimasi lebih kompleks cenderung unggul pada akurasi, sedangkan model yang didesain untuk efisiensi lebih unggul pada kecepatan namun harus mengorbankan ketahanan pada kondisi sulit. Temuan ini juga mempertegas pentingnya membedakan evaluasi single-person dan multi-person, karena perubahan jumlah subjek di dalam frame terbukti memberikan dampak yang besar terhadap performa model.
       Selain itu, pengaruh pencahayaan rendah yang konsisten pada hampir semua model membuktikan bahwa masalah dunia nyata seperti degradasi sinyal visual masih menjadi tantangan penting dalam penelitian HPE. Dengan demikian, hasil penelitian ini tidak hanya menghasilkan peringkat algoritma, tetapi juga memberi pemahaman yang lebih mendalam mengenai bagaimana karakter arsitektur memengaruhi perilaku model pada kondisi nyata.
@@ -804,19 +804,21 @@ SIMPULAN DAN SARAN
 
 5.1 Simpulan
       Berdasarkan hasil pengujian dan pembahasan pada Bab IV, dapat disimpulkan beberapa hal sebagai berikut.
-1. Pada konfigurasi eksperimen yang digunakan, HRNet dan AlphaPose merupakan algoritma dengan performa akurasi terbaik. HRNet menghasilkan nilai OKS tertinggi sebesar 0,7837, sedangkan AlphaPose menghasilkan nilai PCK global tertinggi sebesar 0,9533.
-2. YOLOv8-Pose merupakan algoritma dengan keseimbangan terbaik antara akurasi dan kecepatan. Algoritma ini mampu mencapai OKS 0,6310 dan PCK 0,8626 dengan kecepatan 38,95 FPS, sehingga lebih realistis untuk implementasi praktis dibanding HRNet dan AlphaPose yang jauh lebih lambat.
+1. Pada konfigurasi eksperimen inti tahap sidang, HRNet dan AlphaPose merupakan algoritma dengan performa akurasi terbaik. HRNet menghasilkan nilai OKS tertinggi sebesar 0,7837, sedangkan AlphaPose menghasilkan nilai PCK global tertinggi sebesar 0,9499.
+2. YOLOv8-Pose merupakan algoritma dengan keseimbangan terbaik antara akurasi dan kecepatan. Algoritma ini mencapai OKS 0,6310 dan PCK 0,8626 dengan kecepatan 36,94 FPS, sehingga lebih realistis untuk implementasi praktis dibanding HRNet dan AlphaPose yang jauh lebih lambat.
 3. Skenario multi-person dan pencahayaan redup terbukti menurunkan performa hampir seluruh algoritma. Penurunan terbesar umumnya terjadi pada model ringan single-person seperti MediaPipe Pose, BlazePose, dan MoveNet Thunder, sedangkan HRNet, AlphaPose, dan YOLOv8-Pose menunjukkan robustnes yang lebih baik.
 4. Tidak semua algoritma yang cepat memberikan hasil yang baik. PoseNet memiliki FPS tertinggi, tetapi akurasinya sangat rendah pada pipeline evaluasi ini. OpenPose juga menunjukkan performa yang sangat rendah pada konfigurasi implementasi yang digunakan, sehingga belum layak direkomendasikan pada eksperimen inti penelitian ini.
 5. Secara keseluruhan, hasil penelitian menegaskan bahwa pemilihan algoritma HPE harus mempertimbangkan kebutuhan aplikasi. Jika prioritas utama adalah akurasi, HRNet dan AlphaPose lebih unggul. Jika prioritas utama adalah efisiensi komputasi dengan akurasi yang masih kompetitif, YOLOv8-Pose menjadi pilihan terbaik pada dataset penelitian ini.
+6. Capaian penelitian pada tahap sidang baru mencakup 9 dari 10 algoritma yang direncanakan dan 4 dari 9 pose yang direncanakan. Oleh karena itu, generalisasi penuh terhadap rancangan awal perlu dituntaskan pada tahap lanjutan setelah sidang dengan protokol evaluasi yang sama.
 
 5.2 Saran
       Berdasarkan keterbatasan dan temuan penelitian, beberapa saran yang dapat diajukan adalah sebagai berikut.
-1. Penelitian lanjutan perlu memperluas jumlah pose yang diuji agar representasi aktivitas manusia menjadi lebih beragam, sesuai rancangan awal yang mencakup lebih banyak aktivitas olahraga, rehabilitasi, dan aktivitas sehari-hari.
+1. Penelitian lanjutan perlu menuntaskan cakupan pose dari 4 pose saat ini menjadi 9 pose sesuai rancangan awal, agar representasi aktivitas manusia menjadi lebih beragam pada domain olahraga, rehabilitasi, dan aktivitas sehari-hari.
 2. DeepLabCut dapat dimasukkan pada penelitian berikutnya dengan terlebih dahulu dilatih ulang pada domain data penelitian, kemudian dievaluasi secara terpisah sebagai skenario *custom-trained model* agar fairness terhadap model siap-pakai tetap terjaga.
 3. Perlu dilakukan pengujian tambahan pada lingkungan GPU yang seragam untuk membandingkan performa komputasi dan akurasi pada konfigurasi perangkat keras yang lebih mendekati praktik deployment modern.
 4. Penelitian lanjutan disarankan menambahkan analisis statistik inferensial, misalnya uji beda antar algoritma atau antar kondisi, agar kekuatan generalisasi temuan menjadi lebih tinggi.
 5. Integrasi backend seperti OpenPose dan PoseNet perlu divalidasi lebih lanjut pada konfigurasi implementasi yang berbeda agar dapat dipastikan apakah performa rendah yang muncul benar-benar berasal dari keterbatasan algoritma atau dari kendala implementasi praktis di lingkungan pengujian.
+6. Pemisahan pipeline MediaPipe Pose dan BlazePose perlu divalidasi ulang pada tahap lanjutan untuk memastikan tidak ada kebocoran hasil antar-backend, mengingat pada data akhir keduanya menunjukkan nilai akurasi agregat yang identik.
 
 DAFTAR PUSTAKA
 

@@ -73,6 +73,19 @@ ALGO_LABELS = {
     "yolopose": "YOLOPose",
 }
 
+# Konsisten: satu warna tetap untuk satu algoritma di semua grafik.
+ALGO_COLORS = {
+    "MediaPipe": "#1f77b4",
+    "BlazePose": "#ff7f0e",
+    "MoveNet": "#2ca02c",
+    "PoseNet": "#d62728",
+    "OpenPose": "#9467bd",
+    "HRNet": "#8c564b",
+    "AlphaPose": "#e377c2",
+    "EfficientPose": "#7f7f7f",
+    "YOLOPose": "#bcbd22",
+}
+
 
 def resolve_summary_path(input_path: Path) -> Path:
     if input_path.is_file():
@@ -214,6 +227,29 @@ def add_perf_score(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def color_for_algo(algo_label: str) -> str:
+    return ALGO_COLORS.get(algo_label, "#4e79a7")
+
+
+def add_bar_value_labels(
+    ax: plt.Axes,
+    bars,
+    value_fmt: str = "{:.3f}",
+    fontsize: int = 7,
+) -> None:
+    for b in bars:
+        h = b.get_height()
+        if np.isfinite(h):
+            ax.text(
+                b.get_x() + b.get_width() / 2,
+                h,
+                value_fmt.format(h),
+                ha="center",
+                va="bottom",
+                fontsize=fontsize,
+            )
+
+
 def plot_1_performa_algoritma_4_pose(df: pd.DataFrame, out_dir: Path) -> None:
     agg = (
         df.groupby(["algo_label", "pose"], as_index=False)["perf_score"]
@@ -224,18 +260,31 @@ def plot_1_performa_algoritma_4_pose(df: pd.DataFrame, out_dir: Path) -> None:
     algo_order = ensure_order(agg.index, list(ALGO_LABELS.values()))
     agg = agg.reindex(index=algo_order, columns=pose_order)
 
-    fig, ax = plt.subplots(figsize=(12, 7))
+    fig, ax = plt.subplots(figsize=(14, 7))
     x = np.arange(len(pose_order))
-    for algo in agg.index:
-        ax.plot(x, agg.loc[algo].values, marker="o", linewidth=1.8, label=algo)
+    n_algo = len(agg.index)
+    width = 0.82 / max(n_algo, 1)
 
-    ax.set_title("Grafik 1. Performa Masing-Masing Algoritma terhadap 4 Pose", fontsize=12, weight="bold")
+    for i, algo in enumerate(agg.index):
+        offset = (i - (n_algo - 1) / 2) * width
+        bars = ax.bar(
+            x + offset,
+            agg.loc[algo].values,
+            width=width,
+            label=algo,
+            color=color_for_algo(algo),
+            edgecolor="white",
+            linewidth=0.5,
+        )
+        add_bar_value_labels(ax, bars, value_fmt="{:.3f}", fontsize=6)
+
+    ax.set_title("Grafik Performa Masing-Masing Algoritma terhadap 4 Pose", fontsize=12, weight="bold")
     ax.set_xlabel("Pose")
     ax.set_ylabel("Skor Performa Gabungan")
     ax.set_xticks(x)
     ax.set_xticklabels(pose_order)
-    ax.set_ylim(0, 1.05)
-    ax.grid(alpha=0.25)
+    ax.set_ylim(0, 1.08)
+    ax.grid(axis="y", alpha=0.25)
     ax.legend(ncol=3, fontsize=8)
 
     fig.tight_layout()
@@ -256,17 +305,19 @@ def plot_2_perbandingan_algoritma_per_pose(df: pd.DataFrame, out_dir: Path) -> N
     for i, pose in enumerate(pose_order[:4]):
         ax = axes[i]
         sub = agg[agg["pose"] == pose].sort_values("perf_score", ascending=False)
-        ax.bar(sub["algo_label"], sub["perf_score"], color="#4e79a7")
+        colors = [color_for_algo(a) for a in sub["algo_label"]]
+        bars = ax.bar(sub["algo_label"], sub["perf_score"], color=colors)
+        add_bar_value_labels(ax, bars, value_fmt="{:.3f}", fontsize=7)
         ax.set_title(f"Pose: {pose}")
         ax.set_ylabel("Skor Performa Gabungan")
-        ax.set_ylim(0, 1.05)
+        ax.set_ylim(0, 1.08)
         ax.grid(axis="y", alpha=0.25)
         ax.tick_params(axis="x", rotation=35)
 
     for j in range(len(pose_order), 4):
         axes[j].axis("off")
 
-    fig.suptitle("Grafik 2. Perbandingan Performa Antar Algoritma untuk Setiap Pose", fontsize=12, weight="bold")
+    fig.suptitle("Grafik Perbandingan Performa Antar Algoritma untuk Setiap Pose", fontsize=12, weight="bold")
     fig.savefig(out_dir / "grafik_2_perbandingan_algoritma_per_pose.png", dpi=220)
     plt.close(fig)
 
@@ -284,17 +335,18 @@ def plot_3_metrik_per_algoritma(df: pd.DataFrame, out_dir: Path) -> None:
     ]
 
     for ax, (col, title, ylabel) in zip(axes, specs):
-        bars = ax.bar(agg.index, agg[col], color="#59a14f")
+        colors = [color_for_algo(a) for a in agg.index]
+        bars = ax.bar(agg.index, agg[col], color=colors)
         ax.set_title(title)
         ax.set_ylabel(ylabel)
         ax.grid(axis="y", alpha=0.25)
         ax.tick_params(axis="x", rotation=35)
-        for b, v in zip(bars, agg[col].values):
-            if pd.notna(v):
-                fmt = f"{v:.3f}" if col != "fps_mean" else f"{v:.2f}"
-                ax.text(b.get_x() + b.get_width() / 2, b.get_height(), fmt, ha="center", va="bottom", fontsize=7)
+        if col == "fps_mean":
+            add_bar_value_labels(ax, bars, value_fmt="{:.2f}", fontsize=7)
+        else:
+            add_bar_value_labels(ax, bars, value_fmt="{:.3f}", fontsize=7)
 
-    fig.suptitle("Grafik 3. Perbandingan Metrik Evaluasi per Algoritma", fontsize=12, weight="bold")
+    fig.suptitle("Grafik Perbandingan Metrik Evaluasi per Algoritma", fontsize=12, weight="bold")
     fig.savefig(out_dir / "grafik_3_perbandingan_metrik_per_algoritma.png", dpi=220)
     plt.close(fig)
 
@@ -353,7 +405,9 @@ def plot_6_fps_per_pose(df: pd.DataFrame, out_dir: Path) -> None:
     for i, pose in enumerate(pose_order[:4]):
         ax = axes[i]
         sub = agg[agg["pose"] == pose].sort_values("fps_mean", ascending=False)
-        ax.bar(sub["algo_label"], sub["fps_mean"], color="#f28e2b")
+        colors = [color_for_algo(a) for a in sub["algo_label"]]
+        bars = ax.bar(sub["algo_label"], sub["fps_mean"], color=colors)
+        add_bar_value_labels(ax, bars, value_fmt="{:.2f}", fontsize=7)
         ax.set_title(f"Pose: {pose}")
         ax.set_ylabel("FPS")
         ax.grid(axis="y", alpha=0.25)
@@ -362,7 +416,7 @@ def plot_6_fps_per_pose(df: pd.DataFrame, out_dir: Path) -> None:
     for j in range(len(pose_order), 4):
         axes[j].axis("off")
 
-    fig.suptitle("Grafik 6. Perbandingan Efisiensi FPS untuk Setiap Pose", fontsize=12, weight="bold")
+    fig.suptitle("Grafik Perbandingan Rerata FPS untuk Setiap Pose", fontsize=12, weight="bold")
     fig.savefig(out_dir / "grafik_6_perbandingan_fps_per_pose.png", dpi=220)
     plt.close(fig)
 
@@ -380,14 +434,14 @@ def generate_all_graphs(input_path: Path, out_dir: Path) -> None:
     plot_kondisi_heatmap(
         df=df,
         metric_col="oks_mean_frame",
-        title="Grafik 4. Perbandingan OKS per Kondisi untuk Setiap Pose",
+        title="Grafik Perbandingan OKS per Kondisi untuk Setiap Pose",
         output_name="grafik_4_oks_kondisi_per_pose.png",
         out_dir=out_dir,
     )
     plot_kondisi_heatmap(
         df=df,
         metric_col="pck_global",
-        title="Grafik 5. Perbandingan PCK per Kondisi untuk Setiap Pose",
+        title="Grafik Perbandingan PCK per Kondisi untuk Setiap Pose",
         output_name="grafik_5_pck_kondisi_per_pose.png",
         out_dir=out_dir,
     )
