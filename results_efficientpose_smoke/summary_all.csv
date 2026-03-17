@@ -1,2 +1,0 @@
-video_name,algorithm,scene_person_mode,lighting_mode,n_frames_total,n_frames_scored,n_frames_no_active_gt,n_frames_pred_missing,matched_frame_rate,total_eval_kpt,total_missing_pred_kpt,total_pck_correct,oks_mean_frame,oks_median_frame,oks_weighted,pck_global,latency_mean_ms,latency_median_ms,latency_p95_ms,fps_mean,fps_effective,notes
-MP_R_DudukBerdiri_1,efficientpose,multi,dim,121,121,0,0,1.000000,1283,0,558,0.164101,0.164870,0.164251,0.434918,30.760342,31.175000,33.264300,32.764078,32.509391,
