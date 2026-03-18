@@ -1,3 +1,4 @@
+video_name,algorithm,scene_person_mode,lighting_mode,n_frames_total,n_frames_scored,n_frames_no_active_gt,n_frames_pred_missing,matched_frame_rate,total_eval_kpt,total_missing_pred_kpt,total_pck_correct,oks_mean_frame,oks_median_frame,oks_weighted,pck_global,latency_mean_ms,latency_median_ms,latency_p95_ms,fps_mean,fps_effective,notes
 MP_R_DudukBerdiri_1,mediapipe,multi,dim,121,120,0,1,0.991736,1283,90,959,0.453138,0.496289,0.456359,0.747467,28.808548,27.866500,38.650600,35.021039,34.711920,
 MP_R_DudukBerdiri_2,mediapipe,multi,dim,150,133,0,17,0.886667,1538,558,249,0.087171,0.000013,0.092033,0.161899,35.344429,40.154450,44.532200,29.569803,28.293002,
 MP_R_Jongkok_1,mediapipe,multi,dim,126,126,0,0,1.000000,1512,111,1337,0.710484,0.747081,0.710484,0.884259,27.650161,27.489150,28.549500,36.226382,36.166155,

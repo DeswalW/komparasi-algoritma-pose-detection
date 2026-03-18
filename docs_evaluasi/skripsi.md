@@ -77,7 +77,6 @@ BAB II KAJIAN PUSTAKA	6
 2.2.6.1	Percentage of Correct Keypoints (PCK)	24
 2.2.6.2	Object Keypoint Similarity (OKS)	26
 2.2.6.3	Prinsip Konseptual Evaluasi Single-Person dan Multi-Person	27
-2.2.7	Average Precision (AP) sebagai Rujukan Teoretis	27
 BAB III METODE PENELITIAN	29
 3.1	Pendekatan, Jenis, dan Prosedur Penelitian	29
 3.2	Lokasi dan Waktu Penelitian	31
@@ -333,7 +332,7 @@ Gambar 1. Keypoint pada Tubuh Manusia
       COCO menyediakan berbagai komponen yang diperlukan untuk evaluasi model pose estimation, antara lain definisi keypoint tubuh manusia, parameter sensitivitas masing-masing keypoint yang digunakan dalam perhitungan OKS, serta format anotasi berbasis JSON yang kompatibel dengan berbagai alat anotasi seperti CVAT (Computer Vision Annotation Tool). Kompatibilitas ini memudahkan proses pembuatan ground truth serta integrasi data anotasi dengan pipeline pelatihan dan evaluasi model (Sekachev et al., 2020; Chen et al., 2024). Peran penggunaan COCO pada penelitian ini adalah sebagai dasar pemilihan jumlah keypoint yang digunakan, metode pembuatan ground truth, serta landasan penggunaan metrik evaluasi berbasis OKS dan PCK dalam analisis kinerja model pose estimation.
 2.2.6 Metode Evaluasi HPE
       Evaluasi kinerja model HPE merupakan tahapan penting dalam penelitian computer vision yang bertujuan untuk mengukur kemampuan model dalam memprediksi posisi sendi tubuh manusia secara akurat pada citra atau video. Berbeda dengan tugas object detection yang berfokus pada deteksi batas objek melalui bounding box, pose estimation menitikberatkan pada estimasi posisi titik-titik tubuh manusia (keypoints) seperti bahu, siku, pinggul, lutut, dan pergelangan kaki. Oleh karena itu, metode evaluasi pada HPE dikembangkan secara khusus untuk mengukur kesesuaian posisi keypoint yang diprediksi oleh model terhadap posisi referensi atau ground truth yang telah dianotasi sebelumnya.
-      Evaluasi model HPE dalam literatur umumnya dilakukan melalui beberapa pendekatan metrik, di antaranya Percentage of Correct Keypoints (PCK), Object Keypoint Similarity (OKS), serta Average Precision (AP) berbasis OKS. Pada penelitian ini, metrik operasional yang dihitung pada eksperimen inti tahap sidang adalah OKS, PCK, dan FPS, sedangkan AP diposisikan sebagai rujukan teoretis terhadap standar evaluasi COCO. Penggunaan metrik yang tepat sangat penting karena dapat memberikan gambaran kuantitatif mengenai kualitas model pose estimation yang dikembangkan (Sun et al., 2019; Xiao et al., 2018).
+      Evaluasi model HPE pada penelitian ini menggunakan metrik Percentage of Correct Keypoints (PCK) dan Object Keypoint Similarity (OKS) untuk akurasi, serta Frame Per Second (FPS) untuk efisiensi komputasi. Penggunaan metrik yang tepat sangat penting karena dapat memberikan gambaran kuantitatif mengenai kualitas model pose estimation yang dikembangkan (Sun et al., 2019; Xiao et al., 2018).
 2.2.6.1 Percentage of Correct Keypoints (PCK)
       PCK merupakan salah satu metrik evaluasi yang banyak digunakan dalam penelitian human pose estimation, khususnya pada dataset seperti MPII Human Pose Dataset. Metrik ini mengukur persentase keypoint yang berhasil diprediksi dengan benar oleh model berdasarkan jarak antara koordinat keypoint prediksi dan koordinat keypoint referensi (ground truth). Konsep dasar PCK adalah bahwa sebuah keypoint dianggap benar apabila jarak antara prediksi dan referensi berada di bawah ambang batas tertentu yang telah ditentukan sebelumnya (Andriluka et al., 2014).
       Dalam penerapannya, jarak antara keypoint prediksi dan ground truth dihitung menggunakan jarak Euclidean pada ruang dua dimensi. Nilai jarak ini kemudian dibandingkan dengan ambang batas yang biasanya dinormalisasi terhadap ukuran tubuh manusia dalam citra. Normalisasi ini penting karena ukuran objek manusia pada gambar dapat bervariasi tergantung jarak kamera, perspektif, maupun resolusi citra. Dengan melakukan normalisasi terhadap ukuran tubuh, evaluasi dapat dilakukan secara lebih konsisten pada berbagai ukuran objek.
@@ -395,34 +394,6 @@ Contoh (multi-person, redup):
 2.2.6.3 Prinsip Konseptual Evaluasi Single-Person dan Multi-Person
       Secara konseptual, evaluasi pada skenario single-person dan multi-person tetap menggunakan metrik yang sama (OKS dan PCK), tetapi mekanisme penentuan pose prediksi yang dinilai terhadap target actor berbeda. Perbedaan ini penting agar evaluasi tetap adil pada kondisi multi-person yang berpotensi menimbulkan kebingungan identitas antar individu.
       Karena bersifat prosedural-operasional, rincian langkah matching, strategi cadangan, dan penanganan frame tanpa kecocokan ditempatkan pada Bab III subbab Teknik Analisis Data.
-2.2.7 Average Precision (AP) sebagai Rujukan Teoretis
-      Dalam protokol evaluasi dataset COCO, metrik OKS digunakan untuk menghitung AP pada berbagai ambang batas. Pendekatan ini memungkinkan evaluasi performa model dilakukan secara lebih komprehensif karena model tidak hanya diuji pada satu tingkat toleransi kesalahan.
-      Average Precision dihitung berdasarkan kurva precision-recall yang diperoleh dari berbagai ambang batas nilai OKS. Dalam evaluasi pose estimation, ambang batas yang umum digunakan meliputi AP@0.50, AP@0.75, dan AP@[0.50:0.95]. Nilai AP@0.50 menunjukkan bahwa sebuah prediksi dianggap benar apabila nilai OKS lebih besar dari 0.50, sedangkan AP@0.75 menggunakan ambang batas yang lebih ketat.
-      Sementara itu, metrik AP@[0.50:0.95] merupakan rata-rata nilai AP pada berbagai ambang batas mulai dari 0.50 hingga 0.95 dengan interval tertentu. Pendekatan ini memberikan evaluasi yang lebih ketat terhadap performa model karena mengukur akurasi model pada berbagai tingkat toleransi kesalahan sekaligus (Lin et al., 2014).
-      Pada penelitian ini, perhitungan AP tidak diterapkan pada eksperimen inti tahap sidang. AP dicantumkan sebagai landasan konseptual agar kerangka evaluasi tetap terhubung dengan protokol standar COCO.
-      Misalkan hasil prediksi model menghasilkan nilai berikut:
-Prediksi
-OKS
-Status
-Prediksi 1
-0.82
-True Positive
-Prediksi 2
-0.76
-True Positive
-Prediksi 3
-0.61
-True Positive
-Prediksi 4
-0.45
-False Positive
-      Jika ambang batas OKS = 0.50, maka: 
-True Positive = 3
-False Positive = 1
-Precision dihitung sebagai:
-      Precision=TP/(TP+FP)
-Precision=3/(3+1)=0.75
-Nilai precision sebesar 0.75 menunjukkan bahwa 75% prediksi model merupakan prediksi yang benar berdasarkan ambang batas evaluasi yang digunakan.
 
 BAB III 
 METODE PENELITIAN
@@ -607,7 +578,6 @@ b. Konsistensi penempatan keypoint pada frame-frame dengan pose serupa.
 
 3.8 Teknik Analisis Data
       Teknik analisis data dalam penelitian ini bertujuan untuk mengukur dan membandingkan kinerja algoritma HPE secara kuantitatif berdasarkan hasil estimasi keypoint tubuh manusia. Analisis dilakukan terhadap frame citra yang telah dianotasi, dengan membandingkan hasil prediksi algoritma terhadap data ground truth. Proses analisis data meliputi tahapan pencocokan prediksi dengan ground truth, perhitungan metrik evaluasi, agregasi hasil, serta analisis statistik.
-      Pada tahap sidang, alur operasional difokuskan pada perhitungan OKS, PCK, dan FPS. Metrik AP tidak dihitung pada eksperimen inti, sehingga pembahasannya pada Bab II diperlakukan sebagai rujukan konseptual.
 3.8.1 Pencocokan Prediksi dan Ground Truth (Matching)
       Pada setiap frame uji, algoritma HPE dapat menghasilkan satu atau lebih prediksi skeleton manusia. Untuk keperluan evaluasi, dilakukan proses pencocokan (matching) antara hasil prediksi algoritma dan data ground truth.
       Dalam penelitian ini, pencocokan tidak dilakukan menggunakan nilai OKS tertinggi secara langsung, melainkan melalui mekanisme pemilihan prediksi target actor sebelum metrik dihitung. Bagian ini merupakan implementasi operasional dari prinsip konseptual evaluasi single-person dan multi-person pada Bab II. Skema operasionalnya adalah sebagai berikut.
