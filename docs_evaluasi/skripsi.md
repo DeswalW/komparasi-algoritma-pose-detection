@@ -232,18 +232,41 @@ KAJIAN PUSTAKA
       Berdasarkan ruang lingkup subjek yang dianalisis, HPE dapat diklasifikasikan menjadi dua kategori utama, yaitu single-person pose estimation dan multi-person pose estimation. Single-person pose estimation berfokus pada pendeteksian pose satu individu dalam sebuah citra atau frame video, biasanya dengan asumsi bahwa hanya terdapat satu subjek utama. Sebaliknya, multi-person pose estimation menangani skenario yang lebih kompleks, di mana terdapat lebih dari satu individu dalam satu frame. Pada skenario multi-orang, tantangan utama yang dihadapi adalah oklusi antar tubuh, kesalahan asosiasi keypoint, serta variasi ukuran dan posisi individu dalam citra (Guo et al., 2022).
       Selain jumlah subjek, kondisi lingkungan juga memiliki pengaruh besar terhadap kinerja HPE. Variasi pencahayaan, khususnya pada kondisi pencahayaan rendah, dapat menurunkan kualitas citra input sehingga menyulitkan proses ekstraksi fitur dan pelokalan keypoint. Degradasi kualitas visual, peningkatan noise, serta hilangnya detail tekstur menjadi faktor utama yang menyebabkan penurunan akurasi estimasi pose (Wei et al., 2025). Oleh karena itu, evaluasi kinerja algoritma HPE pada kondisi pencahayaan dan kepadatan subjek yang berbeda menjadi aspek penting dalam penelitian yang berorientasi pada penerapan dunia nyata.
       Dengan demikian, HPE tidak hanya dipandang sebagai permasalahan teknis pelokalan titik tubuh, tetapi juga sebagai fondasi penting bagi berbagai aplikasi lanjutan yang memerlukan pemahaman mendalam terhadap postur dan gerakan manusia. Pemahaman terhadap konsep dan prinsip dasar HPE menjadi landasan teoretis yang krusial sebelum membahas arsitektur, pendekatan, serta algoritma estimasi pose secara lebih spesifik pada subbab berikutnya.
-      Secara operasional, sistem HPE bekerja melalui serangkaian tahapan pemrosesan visual yang terstruktur, mulai dari penerimaan data citra hingga pembentukan representasi pose dalam bentuk kerangka tubuh (skeleton). Alur kerja tersebut umumnya terdiri atas urutan: input image, pre-processing, CNN feature extraction, prediksi keypoint, skeleton construction, dan analisis pose lanjutan.
+      Secara operasional, algoritma HPE tidak dibangun dari satu arsitektur tunggal yang sama untuk semua model. Setiap algoritma memiliki desain spesifik, tetapi mayoritas mengikuti pola komponen yang mirip, yaitu: input image, pre-processing, feature extractor (backbone), prediction head, decoding/post-processing, skeleton construction, dan analisis pose lanjutan. Perbedaan utama antar algoritma umumnya terletak pada jenis backbone yang dipilih, bentuk keluaran head (heatmap atau koordinat langsung), serta strategi asosiasi keypoint pada skenario multi-person (misalnya top-down atau bottom-up).
 2.2.1.1 Pre-processing Citra
       Tahap pertama adalah pre-processing citra, yaitu proses persiapan data visual sebelum diproses oleh model. Pada tahap ini citra atau frame video yang menjadi input biasanya mengalami proses normalisasi ukuran, penyesuaian skala, serta augmentasi data seperti rotasi, flipping, atau cropping untuk meningkatkan kemampuan generalisasi model (Sun et al., 2021). Proses ini bertujuan memastikan bahwa data yang masuk ke dalam jaringan memiliki format dan distribusi yang konsisten.
 2.2.1.2 CNN Feature Extraction
-      Tahap kedua adalah ekstraksi fitur (feature extraction) yang dilakukan menggunakan arsitektur jaringan saraf konvolusional atau Convolutional Neural Network (CNN). Pada tahap ini model mempelajari pola visual penting dari citra, seperti tepi tubuh, bentuk anggota badan, dan struktur kontur manusia. CNN bekerja dengan menerapkan operasi konvolusi berlapis yang mampu mengekstraksi fitur visual secara hierarkis, mulai dari fitur dasar seperti garis dan tekstur hingga fitur kompleks seperti bentuk tubuh manusia (Newell et al., 2022).
+      Tahap kedua adalah ekstraksi fitur (feature extraction) yang umumnya dilakukan oleh backbone, biasanya berupa Convolutional Neural Network (CNN) atau varian modern lainnya. Pada tahap ini model mempelajari pola visual penting dari citra, seperti tepi tubuh, bentuk anggota badan, dan struktur kontur manusia. Backbone bekerja dengan operasi berlapis yang mengekstraksi fitur secara hierarkis, mulai dari fitur dasar seperti garis dan tekstur hingga fitur kompleks seperti konfigurasi tubuh manusia (Newell et al., 2022).
 2.2.1.3 Prediksi Keypoint
-      Setelah fitur visual berhasil diekstraksi, tahap berikutnya adalah prediksi keypoint atau joint localization. Pada tahap ini jaringan menghasilkan heatmap probabilistik yang menunjukkan kemungkinan posisi setiap titik sendi tubuh pada citra. Setiap heatmap merepresentasikan satu titik tubuh tertentu, misalnya bahu, siku, atau lutut. Nilai intensitas pada heatmap menunjukkan tingkat kepercayaan model terhadap lokasi keypoint tersebut. Titik dengan probabilitas tertinggi kemudian dipilih sebagai posisi akhir keypoint pada citra (Xiao et al., 2023).
+      Setelah fitur visual berhasil diekstraksi, tahap berikutnya adalah prediksi keypoint atau joint localization melalui prediction head. Pada pendekatan heatmap-based, jaringan menghasilkan peta probabilistik untuk setiap sendi tubuh. Pada pendekatan regression-based, jaringan memprediksi koordinat keypoint secara langsung dalam bentuk nilai numerik. Dengan demikian, keluaran head dapat berbeda antar algoritma, walaupun tujuan akhirnya sama, yaitu menentukan posisi keypoint pada citra (Xiao et al., 2023).
 2.2.1.4 Skeleton Construction
-      Tahap selanjutnya adalah asosiasi dan konstruksi skeleton, yaitu proses menghubungkan keypoint-keypoint yang telah diprediksi menjadi struktur kerangka tubuh manusia. Pada model multi-person pose estimation, tahap ini menjadi lebih kompleks karena sistem harus memastikan bahwa keypoint yang terdeteksi berasal dari individu yang sama. Beberapa pendekatan menggunakan metode part affinity fields (PAF) untuk memodelkan hubungan spasial antar keypoint sehingga memungkinkan pengelompokan titik tubuh yang benar dalam satu individu (Cao et al., 2021).
+      Tahap selanjutnya adalah decoding, asosiasi, dan konstruksi skeleton, yaitu proses menghubungkan keypoint yang diprediksi menjadi struktur kerangka tubuh manusia. Pada model multi-person, tahap ini menjadi lebih kompleks karena sistem harus memastikan keypoint berasal dari individu yang sama. Pendekatan top-down biasanya mengandalkan deteksi orang terlebih dahulu, kemudian estimasi pose per individu. Pendekatan bottom-up biasanya mendeteksi keypoint terlebih dahulu lalu mengelompokkannya, misalnya melalui Part Affinity Fields (PAF) atau representasi asosiasi spasial lain (Cao et al., 2021).
 2.2.1.5 Analisis Pose Lanjutan
       Setelah kerangka tubuh terbentuk, sistem dapat melakukan analisis pose lanjutan, seperti estimasi sudut sendi, analisis gerakan, atau pengenalan aktivitas manusia. Informasi ini sering dimanfaatkan dalam berbagai aplikasi praktis, seperti sistem analisis olahraga, rehabilitasi medis, interaksi manusia-komputer, hingga sistem pemantauan keselamatan kerja (Schmeckpeper et al., 2022).
-      Dengan alur kerja tersebut, model HPE mampu mengubah informasi visual berupa citra mentah menjadi representasi struktural tubuh manusia yang dapat dianalisis secara komputasional. Mekanisme ini menjadikan HPE sebagai komponen penting dalam berbagai sistem berbasis computer vision yang memerlukan pemahaman mendalam terhadap postur dan dinamika gerakan manusia.
+      Dengan alur kerja modular tersebut, model HPE mampu mengubah citra mentah menjadi representasi struktural tubuh manusia yang dapat dianalisis secara komputasional. Artinya, meskipun tiap algoritma memiliki arsitektur berbeda, prinsip pemrosesan intinya tetap berada pada rangkaian komponen yang serupa.
+
+2.2.1.6 Contoh Implementasi From Scratch (Notebook)
+      Sebagai ilustrasi implementatif, penelitian ini menyusun notebook from scratch yang menampilkan tiga mode arsitektur, yaitu top-down, bottom-up, dan regresi langsung. Contoh ini tidak ditujukan untuk mengejar performa terbaik, tetapi untuk memperlihatkan alur pembentukan model dari komponen dasar backbone-head-decoder.
+
+Contoh potongan kode (mode top-down) dari notebook:
+
+```python
+class TinyTopDown(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Conv2d(3, 32, 3, stride=2, padding=1), nn.BatchNorm2d(32), nn.ReLU(True),
+            nn.Conv2d(32, 64, 3, stride=2, padding=1), nn.BatchNorm2d(64), nn.ReLU(True),
+            nn.Conv2d(64, 128, 3, padding=1), nn.BatchNorm2d(128), nn.ReLU(True),
+            nn.Conv2d(128, 17, 1),
+        )
+
+    def forward(self, x):
+        return self.net(x)
+```
+
+      Selain mode top-down, notebook yang sama juga memuat mode bottom-up (17 heatmap keypoint + 1 heatmap pusat) dan mode regresi langsung (34 output untuk 17 titik (x, y)). Dengan demikian, pembaca dapat melihat secara konkret bahwa perbedaan algoritma HPE lebih banyak muncul pada desain head dan strategi decoding/asosiasi, bukan karena adanya satu arsitektur tunggal yang dipakai semua model.
+      Keterkaitan teori-implementasi pada bagian ini dapat dilihat pada Lampiran Kode `kaggle_notebooks/00_hpe_scratch_standalone_no_eval.ipynb`, terutama baris 352-407 (definisi tiga arsitektur `TinyTopDown`, `TinyBottomUp`, `TinyRegressor`), baris 201-209 (dekoder heatmap `decode_argmax`), serta baris 212-247 (konstruksi skeleton dan visualisasi `draw_pose`).
 2.2.2 Peran dan Penerapan HPE dalam Berbagai Bidang
       Perkembangan HPE telah membuka peluang pemanfaatan yang luas di berbagai bidang, seiring dengan meningkatnya kebutuhan akan sistem yang mampu memahami postur dan gerakan manusia secara otomatis. Menurut Zhang et al. (2021), informasi pose yang direpresentasikan dalam bentuk keypoint tubuh memungkinkan analisis gerakan dilakukan secara objektif, terukur, dan dapat diintegrasikan dengan sistem komputasi lainnya. Oleh karena itu, HPE tidak hanya dipandang sebagai permasalahan teknis dalam computer vision, tetapi juga sebagai teknologi pendukung yang memiliki dampak signifikan pada berbagai sektor.
 2.2.2.1 Penerapan HPE dalam Bidang Olahraga
@@ -330,6 +353,7 @@ Gambar 1. Keypoint pada Tubuh Manusia
 2.2.5.3 Relevansi Dataset COCO dalam Penelitian
       Penggunaan dataset COCO dalam penelitian ini berkaitan erat dengan metode evaluasi yang digunakan, yaitu Object Keypoint Similarity (OKS) dan Percentage of Correct Keypoints (PCK). Kedua metrik tersebut merupakan standar evaluasi yang banyak digunakan dalam penelitian HPE dan secara langsung terintegrasi dengan definisi keypoint yang terdapat dalam dataset COCO (Liu et al., 2022).
       COCO menyediakan berbagai komponen yang diperlukan untuk evaluasi model pose estimation, antara lain definisi keypoint tubuh manusia, parameter sensitivitas masing-masing keypoint yang digunakan dalam perhitungan OKS, serta format anotasi berbasis JSON yang kompatibel dengan berbagai alat anotasi seperti CVAT (Computer Vision Annotation Tool). Kompatibilitas ini memudahkan proses pembuatan ground truth serta integrasi data anotasi dengan pipeline pelatihan dan evaluasi model (Sekachev et al., 2020; Chen et al., 2024). Peran penggunaan COCO pada penelitian ini adalah sebagai dasar pemilihan jumlah keypoint yang digunakan, metode pembuatan ground truth, serta landasan penggunaan metrik evaluasi berbasis OKS dan PCK dalam analisis kinerja model pose estimation.
+      Secara implementatif, definisi COCO-17 dan parameter sigma OKS direalisasikan pada Lampiran Kode `keypoint_evaluator/mappings.py` baris 24-55 (`COCO17_NAMES` dan `COCO17_SIGMAS`), sedangkan normalisasi keluaran backend ke format COCO-17 direalisasikan pada baris 152-184 (`map_to_coco17`).
 2.2.6 Metode Evaluasi HPE
       Evaluasi kinerja model HPE merupakan tahapan penting dalam penelitian computer vision yang bertujuan untuk mengukur kemampuan model dalam memprediksi posisi sendi tubuh manusia secara akurat pada citra atau video. Berbeda dengan tugas object detection yang berfokus pada deteksi batas objek melalui bounding box, pose estimation menitikberatkan pada estimasi posisi titik-titik tubuh manusia (keypoints) seperti bahu, siku, pinggul, lutut, dan pergelangan kaki. Oleh karena itu, metode evaluasi pada HPE dikembangkan secara khusus untuk mengukur kesesuaian posisi keypoint yang diprediksi oleh model terhadap posisi referensi atau ground truth yang telah dianotasi sebelumnya.
       Evaluasi model HPE pada penelitian ini menggunakan metrik Percentage of Correct Keypoints (PCK) dan Object Keypoint Similarity (OKS) untuk akurasi, serta Frame Per Second (FPS) untuk efisiensi komputasi. Penggunaan metrik yang tepat sangat penting karena dapat memberikan gambaran kuantitatif mengenai kualitas model pose estimation yang dikembangkan (Sun et al., 2019; Xiao et al., 2018).
@@ -345,6 +369,7 @@ dengan:
 * d_i = jarak Euclidean antara keypoint prediksi dan ground truth
 * L = ukuran referensi tubuh manusia
 * alpha = parameter ambang batas (0.1-0.5)
+      Persamaan dan kondisi threshold PCK tersebut terimplementasikan pada Lampiran Kode `keypoint_evaluator/metrics.py` baris 97-128 (`compute_pck`, khususnya threshold pada baris 119), serta diekspos ke keluaran detail frame pada `keypoint_evaluator/writers.py` baris 263-373 (kolom `pck_threshold_px` dan `pck_correct`).
       Pendekatan ini memungkinkan evaluasi yang relatif sederhana dan intuitif karena hanya memerlukan perbandingan jarak antara keypoint prediksi dan referensi. Dalam beberapa penelitian, variasi dari metrik PCK juga digunakan untuk meningkatkan konsistensi evaluasi. Salah satu variasi yang umum adalah PCKh, yaitu metrik PCK yang menggunakan ukuran kepala sebagai faktor normalisasi jarak. Pendekatan ini digunakan pada dataset MPII karena ukuran kepala dianggap relatif stabil sebagai referensi skala tubuh manusia dalam citra (Andriluka et al., 2014). Nilai PCK yang lebih tinggi menunjukkan bahwa model memiliki kemampuan yang lebih baik dalam memprediksi posisi keypoint tubuh manusia secara akurat. 
       Metrik PCK sering digunakan sebagai indikator utama dalam evaluasi performa model pose estimation pada berbagai penelitian di bidang computer vision. Agar konsisten dengan konteks penelitian ini, contoh berikut menggunakan skenario video uji yang serupa.
 
@@ -366,6 +391,7 @@ Contoh 2 (multi-person, redup):
       OKS = [sum_i (exp(-(d_i^2)/(2*s^2*k_i^2)) * 1(v_i>0))] / [sum_i 1(v_i>0)]
       dengan:
 * d_i = jarak Euclidean antara keypoint prediksi dan ground truth
+      Persamaan OKS di atas terimplementasikan pada Lampiran Kode `keypoint_evaluator/metrics.py` baris 59-94 (`compute_oks`: pembentukan faktor eksponensial dan rata-rata), dengan parameter sigma per-joint yang diambil dari `keypoint_evaluator/mappings.py` baris 37-55 (`COCO17_SIGMAS`).
 * s = skala objek manusia
 * k_i = konstanta sensitivitas keypoint
 * v_i = nilai visibilitas keypoint
@@ -592,6 +618,7 @@ b. Konsistensi penempatan keypoint pada frame-frame dengan pose serupa.
       Jika pada frame multi-person tidak ditemukan kandidat yang layak dicocokkan ke target actor, frame diberi status tidak cocok (no_pred_match). Frame ini tidak masuk ke perhitungan rata-rata metrik pada frame valid, tetapi tetap dihitung pada indikator reliabilitas seperti matched frame rate dan missing keypoint rate.
 
       Skema ini memastikan evaluasi single-person dan multi-person tetap adil, karena metrik selalu dihitung terhadap target actor yang sama, bukan terhadap individu lain yang kebetulan terdeteksi di dalam frame.
+      Implementasi operasional matching tersebut terdapat pada Lampiran Kode `keypoint_evaluator/metrics.py` baris 155-210 (`match_target`, `_iou_bbox`, `_center_dist`) dan dipanggil pada `keypoint_evaluator/runner.py` baris 276-282. Penanganan frame tanpa kecocokan (`no_pred_match`) berada pada `keypoint_evaluator/runner.py` baris 285-288.
 3.8.2 Perhitungan Object Keypoint Similarity (OKS)
       OKS digunakan untuk mengukur tingkat kesesuaian antara keypoint hasil prediksi algoritma dan ground truth. OKS dihitung berdasarkan jarak Euclidean antara pasangan keypoint yang bersesuaian, yang dinormalisasi terhadap skala objek dan sensitivitas masing-masing keypoint.
       Rumus perhitungan OKS dinyatakan sebagaimana pada persamaan (3.1):
@@ -604,6 +631,7 @@ OKS = [sum_i (exp(-(d_i^2)/(2*s^2*k_i^2)) * 1(v_i>0))] / [sum_i 1(v_i>0)]
 * v_i menunjukkan visibilitas keypoint ke-i, dan
 * 1(v_i>0) adalah fungsi indikator yang bernilai 1 jika keypoint terlihat dan 0 jika tidak.
       Nilai OKS berada pada rentang 0 hingga 1. Nilai yang lebih tinggi menunjukkan tingkat kesesuaian keypoint yang lebih baik antara hasil prediksi algoritma dan ground truth. Dalam penelitian ini, nilai OKS dihitung pada tingkat frame dan selanjutnya dirata-ratakan untuk memperoleh nilai kinerja algoritma pada setiap pose dan kondisi pengujian.
+      Implementasi perhitungan frame-level OKS pada tahap analisis data terdapat di Lampiran Kode `keypoint_evaluator/metrics.py` baris 59-94 (`compute_oks`) dan diorkestrasi per frame oleh `keypoint_evaluator/metrics.py` baris 213-252 (`evaluate_frame`) yang dipanggil dari `keypoint_evaluator/runner.py` baris 282.
 3.8.3 Perhitungan Percentage of Correct Keypoints (PCK)
       Selain OKS, penelitian ini menggunakan metrik PCK untuk mengukur akurasi estimasi pose. PCK menghitung persentase keypoint yang terdeteksi dengan benar berdasarkan ambang batas jarak tertentu antara prediksi dan ground truth.
       Rumus perhitungan PCK dinyatakan sebagaimana persamaan (2):
@@ -613,14 +641,17 @@ PCK = (N_correct / N_total) x 100%
 * N_correct adalah jumlah keypoint yang terdeteksi dengan benar, dan
 * N_total adalah total keypoint yang dievaluasi.
       Suatu keypoint dianggap benar apabila jarak antara prediksi dan ground truth berada di bawah ambang batas yang telah ditentukan dan dinormalisasi terhadap ukuran tubuh manusia. Nilai PCK dinyatakan dalam bentuk persentase, di mana nilai yang lebih tinggi menunjukkan akurasi estimasi pose yang lebih baik.
+      Implementasi perhitungan PCK frame-level terdapat pada Lampiran Kode `keypoint_evaluator/metrics.py` baris 97-128 (`compute_pck`), termasuk normalisasi skala `sqrt(area)` dan penerapan ambang `alpha`. Nilai jumlah benar (`pck_correct_count`) dikembalikan oleh `evaluate_frame` pada `keypoint_evaluator/metrics.py` baris 213-252 dan dicatat di `keypoint_evaluator/runner.py` baris 301-312.
 3.8.4 Agregasi Hasil Evaluasi
       Nilai OKS dan PCK dihitung untuk setiap frame. Selanjutnya, nilai-nilai tersebut diagregasi dengan cara dirata-ratakan untuk memperoleh:
 1. Nilai kinerja algoritma pada setiap pose dinamis,
 2. Nilai kinerja algoritma pada setiap kondisi pengujian (jumlah orang dan kondisi pencahayaan), dan
 3. Nilai kinerja keseluruhan algoritma pada seluruh data uji.
       Selain OKS dan PCK, agregasi juga mencakup *matched frame rate*, rerata latensi, rerata FPS, serta rasio *missing keypoints* untuk menggambarkan reliabilitas prediksi. Pendekatan agregasi ini memungkinkan analisis kinerja dilakukan pada berbagai tingkat, mulai dari frame individual hingga perbandingan performa algoritma secara umum.
+      Implementasi agregasi lintas-frame ke ringkasan video terdapat pada Lampiran Kode `keypoint_evaluator/writers.py` baris 165-251 (`write_summary_csv`, termasuk `matched_frame_rate`, `oks_mean_frame`, `pck_global`, `latency_mean_ms`, `fps_mean`). Sementara keluaran detail per keypoint per frame direalisasikan pada `keypoint_evaluator/writers.py` baris 263-376 (`write_per_keypoint_csv`).
 3.8.5 Analisis Efisiensi Komputasi
       Selain akurasi estimasi pose, penelitian ini juga menganalisis efisiensi komputasi algoritma HPE. Efisiensi komputasi diukur menggunakan nilai FPS, yang menunjukkan jumlah frame citra yang dapat diproses algoritma dalam satu detik. Pengukuran FPS dilakukan pada perangkat keras dan lingkungan komputasi yang sama untuk seluruh algoritma, sehingga perbedaan nilai FPS mencerminkan perbedaan efisiensi algoritma, bukan perbedaan konfigurasi sistem.
+      Secara implementatif, FPS instan dihitung dari latensi frame pada `keypoint_evaluator/runner.py` baris 253 (`fps_inst = 1000.0 / latency_ms`), sedangkan FPS rata-rata per video dihitung pada `keypoint_evaluator/writers.py` baris 220 dan disimpan ke kolom `fps_mean` pada baris 244.
 3.8.6 Analisis Statistik dan Penafsiran Hasil
       Hasil evaluasi OKS, PCK, dan FPS dianalisis menggunakan statistik deskriptif komparatif untuk menyajikan nilai rata-rata, median, laju kecocokan frame, rasio keypoint hilang, serta variasi performa antar kondisi pengujian. Penafsiran hasil dilakukan dengan mengaitkan perbedaan nilai evaluasi yang diperoleh dengan karakteristik arsitektur algoritma, skenario jumlah orang, dan kondisi pencahayaan, sehingga diperoleh pemahaman yang komprehensif mengenai keunggulan dan keterbatasan masing-masing algoritma HPE pada konfigurasi eksperimen yang dijalankan.
 
@@ -630,7 +661,7 @@ HASIL DAN PEMBAHASAN
 
 4.1 Deskripsi Umum Data Hasil Pengujian
       Pengujian pada penelitian ini dilakukan terhadap sembilan algoritma *human pose estimation* yang telah memiliki hasil lengkap pada dataset penelitian, yaitu AlphaPose, BlazePose, EfficientPose, HRNet, MediaPipe Pose, MoveNet Thunder, OpenPose, PoseNet, dan YOLOv8-Pose. Seluruh algoritma diuji pada 32 video uji yang dibentuk dari empat kelompok aktivitas, yaitu DudukBerdiri, Jongkok, PushUp, dan Yoga, dengan kombinasi kondisi jumlah subjek (single-person dan multi-person), pencahayaan (terang dan redup), serta dua pengulangan pada setiap kombinasi.
-      Hasil evaluasi diperoleh dalam dua tingkat, yaitu tingkat ringkasan video melalui berkas ringkasan hasil akhir dan tingkat detail frame melalui `metrics_per_frame.csv`. Metrik yang digunakan pada penelitian ini meliputi Object Keypoint Similarity (OKS), Percentage of Correct Keypoints (PCK), *matched frame rate*, rasio *missing keypoints*, rerata latensi, dan rerata *frame per second* (FPS). Kombinasi metrik tersebut memungkinkan evaluasi yang tidak hanya berfokus pada ketepatan spasial keypoint, tetapi juga pada reliabilitas kecocokan target actor dan efisiensi komputasi.
+      Hasil evaluasi diperoleh dalam dua tingkat, yaitu tingkat ringkasan video melalui berkas ringkasan hasil akhir dan tingkat detail frame melalui `metrics_per_keypoint_per_frame.csv`. Metrik yang digunakan pada penelitian ini meliputi Object Keypoint Similarity (OKS), Percentage of Correct Keypoints (PCK), *matched frame rate*, rasio *missing keypoints*, rerata latensi, dan rerata *frame per second* (FPS). Kombinasi metrik tersebut memungkinkan evaluasi yang tidak hanya berfokus pada ketepatan spasial keypoint, tetapi juga pada reliabilitas kecocokan target actor dan efisiensi komputasi.
       Secara umum, hasil eksperimen menunjukkan tiga kelompok performa yang cukup jelas. Kelompok pertama adalah algoritma berakurasi tinggi namun lambat, yaitu HRNet dan AlphaPose. Kelompok kedua adalah algoritma dengan keseimbangan akurasi dan kecepatan yang lebih baik, terutama YOLOv8-Pose, BlazePose, dan MediaPipe Pose. Kelompok ketiga adalah algoritma yang pada konfigurasi eksperimen ini menghasilkan performa akurasi rendah, yaitu EfficientPose, MoveNet Thunder, PoseNet, dan OpenPose.
       MediaPipe Pose dan BlazePose diperlakukan sebagai dua backend yang berbeda. Pada hasil akhir, keduanya memiliki nilai akurasi agregat yang identik, tetapi tetap menunjukkan profil latensi dan FPS yang berbeda.
 
@@ -1023,6 +1054,57 @@ Single-person
 Top-down
 Heatmap
 17
+
+Instrumen 5. Tabel Definisi Kolom Instrumen (Siap Pakai)
+
+Tabel 5.1 Definisi Kolom Ringkasan Hasil Akhir (`summary_all_final.csv`)
+
+| No | Nama Kolom | Deskripsi Operasional | Satuan/Format | Digunakan pada Analisis |
+|---|---|---|---|---|
+| 1 | `video_name` | Identitas video uji (kombinasi skenario, aktivitas, dan pengulangan) | Teks | Segmentasi hasil per video, pose, dan kondisi |
+| 2 | `algorithm` | Nama backend/algoritma HPE yang dievaluasi | Teks | Perbandingan antar algoritma |
+| 3 | `scene_person_mode` | Mode jumlah subjek pada video (`single`/`multi`) | Kategori | Analisis pengaruh jumlah orang |
+| 4 | `lighting_mode` | Kondisi pencahayaan (`bright`/`dim`) | Kategori | Analisis pengaruh pencahayaan |
+| 5 | `n_frames_total` | Jumlah frame total video yang diproses | Frame | Basis perhitungan rasio |
+| 6 | `n_frames_scored` | Jumlah frame berstatus `ok` (berhasil dinilai) | Frame | Reliabilitas evaluasi |
+| 7 | `matched_frame_rate` | Proporsi frame yang berhasil dicocokkan dengan target actor | Rasio (0-1) | Analisis keandalan matching |
+| 8 | `oks_mean_frame` | Rata-rata nilai OKS per frame pada video | Skor (0-1) | Metrik akurasi utama (OKS) |
+| 9 | `pck_global` | Nilai PCK global dari seluruh keypoint evaluasi pada video | Skor (0-1) | Metrik akurasi utama (PCK) |
+| 10 | `total_eval_kpt` | Total keypoint yang masuk evaluasi pada video | Keypoint | Basis rasio missing keypoint |
+| 11 | `total_missing_pred_kpt` | Total keypoint evaluasi yang tidak memiliki prediksi valid | Keypoint | Komponen missing keypoint rate |
+| 12 | `latency_mean_ms` | Rata-rata latensi inferensi per frame | Milidetik (ms) | Analisis efisiensi komputasi |
+| 13 | `fps_mean` | Rata-rata frame per second saat inferensi | Frame/detik | Analisis efisiensi komputasi |
+
+Catatan perhitungan turunan yang dilaporkan pada tabel hasil Bab IV:
+
+`missing_kpt_rate = total_missing_pred_kpt / total_eval_kpt`
+
+Tabel 5.2 Definisi Kolom Detail Keypoint per Frame (`metrics_per_keypoint_per_frame.csv`)
+
+| No | Nama Kolom | Deskripsi Operasional | Satuan/Format | Digunakan pada Analisis |
+|---|---|---|---|---|
+| 1 | `video_name` | Identitas video uji | Teks | Penelusuran sampel detail |
+| 2 | `algorithm` | Nama algoritma HPE | Teks | Perbandingan detail lintas algoritma |
+| 3 | `frame_idx` | Indeks frame pada video | Bilangan bulat | Analisis temporal per frame |
+| 4 | `timestamp_sec` | Waktu frame pada video | Detik | Interpretasi kejadian frame |
+| 5 | `status` | Status evaluasi frame (`ok`, `no_pred_match`, dll.) | Kategori | Penyaringan frame valid |
+| 6 | `matched_pred_found` | Penanda berhasil/tidaknya prediksi target actor ditemukan | Biner (0/1) | Validasi proses matching |
+| 7 | `keypoint_name` | Nama titik tubuh (COCO-17) | Teks | Analisis kesalahan per sendi |
+| 8 | `is_eval_joint` | Penanda keypoint yang masuk evaluasi pada frame terkait | Biner (0/1) | Filter keypoint evaluatif |
+| 9 | `gt_x` | Koordinat x ground truth keypoint | Piksel | Perhitungan jarak prediksi-GT |
+| 10 | `gt_y` | Koordinat y ground truth keypoint | Piksel | Perhitungan jarak prediksi-GT |
+| 11 | `pred_x` | Koordinat x prediksi keypoint | Piksel | Perhitungan jarak prediksi-GT |
+| 12 | `pred_y` | Koordinat y prediksi keypoint | Piksel | Perhitungan jarak prediksi-GT |
+| 13 | `distance_px` | Jarak Euclidean prediksi terhadap ground truth | Piksel | Komponen PCK dan analisis error |
+| 14 | `pck_threshold_px` | Ambang jarak PCK pada frame tersebut | Piksel | Penentuan benar/salah PCK |
+| 15 | `pck_correct` | Status keypoint benar menurut PCK | Biner (0/1) | Akumulasi PCK |
+| 16 | `oks_term` | Komponen kontribusi keypoint terhadap OKS frame | Skor (0-1) | Akumulasi OKS |
+
+Catatan penggunaan instrumen:
+
+1. Tabel 5.1 dipakai untuk analisis utama dan pelaporan hasil Bab IV.
+2. Tabel 5.2 dipakai untuk audit detail, contoh perhitungan, dan penelusuran pola kegagalan per keypoint.
+3. Kolom teknis lain tetap disimpan pada berkas asli sebagai lampiran data mentah.
 
 i
 

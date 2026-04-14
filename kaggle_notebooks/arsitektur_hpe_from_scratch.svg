@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="980" viewBox="0 0 1800 980">
+  <defs>
+    <style>
+      .title { font: 700 54px 'Segoe UI', Arial, sans-serif; fill: #0b3d3b; }
+      .panel-title { font: 700 34px 'Segoe UI', Arial, sans-serif; fill: #0b3d3b; }
+      .block-text { font: 600 22px 'Segoe UI', Arial, sans-serif; fill: #143d4a; }
+      .small-text { font: 500 20px 'Segoe UI', Arial, sans-serif; fill: #355867; }
+      .panel { fill: #eef3f8; stroke: #8aa7c2; stroke-width: 2; rx: 20; }
+      .block { fill: #ffffff; stroke: #4f7aa0; stroke-width: 2; rx: 14; }
+      .head { fill: #fff5e6; stroke: #d4892f; stroke-width: 2; rx: 14; }
+      .out { fill: #eaf8ef; stroke: #5a9b6c; stroke-width: 2; rx: 14; }
+      .arrow { stroke: #4c6478; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+    </style>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 z" fill="#4c6478"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1800" height="980" fill="#dfe6ee"/>
+  <text x="900" y="80" text-anchor="middle" class="title">Arsitektur HPE From Scratch</text>
+
+  <!-- Panel 1: Top-Down -->
+  <rect x="50" y="130" width="530" height="780" class="panel"/>
+  <text x="315" y="180" text-anchor="middle" class="panel-title">Mode Top-Down (Heatmap)</text>
+
+  <rect x="90" y="230" width="190" height="90" class="block"/>
+  <text x="185" y="275" text-anchor="middle" class="block-text">Input Citra</text>
+  <text x="185" y="302" text-anchor="middle" class="small-text">256 x 192</text>
+
+  <rect x="350" y="230" width="190" height="90" class="block"/>
+  <text x="445" y="275" text-anchor="middle" class="block-text">Crop Person</text>
+  <text x="445" y="302" text-anchor="middle" class="small-text">bbox + padding</text>
+
+  <path d="M280 275 L350 275" class="arrow"/>
+
+  <rect x="90" y="400" width="450" height="110" class="block"/>
+  <text x="315" y="452" text-anchor="middle" class="block-text">Backbone CNN Ringan</text>
+  <text x="315" y="480" text-anchor="middle" class="small-text">Conv - BN - ReLU (3 tahap)</text>
+
+  <path d="M445 320 L445 400" class="arrow"/>
+
+  <rect x="90" y="560" width="450" height="95" class="head"/>
+  <text x="315" y="615" text-anchor="middle" class="block-text">Head Heatmap (17 kanal)</text>
+
+  <path d="M315 510 L315 560" class="arrow"/>
+
+  <rect x="90" y="700" width="210" height="90" class="block"/>
+  <text x="195" y="747" text-anchor="middle" class="block-text">Decode Argmax</text>
+
+  <rect x="330" y="700" width="210" height="90" class="out"/>
+  <text x="435" y="736" text-anchor="middle" class="block-text">Koordinat 17 Titik</text>
+  <text x="435" y="764" text-anchor="middle" class="small-text">(x, y)</text>
+
+  <path d="M315 655 L195 700" class="arrow"/>
+  <path d="M300 745 L330 745" class="arrow"/>
+
+  <!-- Panel 2: Bottom-Up -->
+  <rect x="635" y="130" width="530" height="780" class="panel"/>
+  <text x="900" y="180" text-anchor="middle" class="panel-title">Mode Bottom-Up (Heatmap + Grouping)</text>
+
+  <rect x="675" y="230" width="450" height="90" class="block"/>
+  <text x="900" y="275" text-anchor="middle" class="block-text">Input Citra Penuh (256 x 192)</text>
+
+  <rect x="675" y="390" width="450" height="110" class="block"/>
+  <text x="900" y="442" text-anchor="middle" class="block-text">Backbone CNN Ringan</text>
+  <text x="900" y="470" text-anchor="middle" class="small-text">Conv - BN - ReLU (3 tahap)</text>
+
+  <path d="M900 320 L900 390" class="arrow"/>
+
+  <rect x="675" y="550" width="210" height="95" class="head"/>
+  <text x="780" y="605" text-anchor="middle" class="block-text">Heatmap 17 KPT</text>
+
+  <rect x="915" y="550" width="210" height="95" class="head"/>
+  <text x="1020" y="605" text-anchor="middle" class="block-text">Heatmap Pusat</text>
+
+  <path d="M900 500 L780 550" class="arrow"/>
+  <path d="M900 500 L1020 550" class="arrow"/>
+
+  <rect x="675" y="700" width="450" height="95" class="out"/>
+  <text x="900" y="747" text-anchor="middle" class="block-text">Grouping Keypoint ke Person</text>
+  <text x="900" y="775" text-anchor="middle" class="small-text">output: satu atau banyak skeleton</text>
+
+  <path d="M780 645 L860 700" class="arrow"/>
+  <path d="M1020 645 L940 700" class="arrow"/>
+
+  <!-- Panel 3: Direct Regression -->
+  <rect x="1220" y="130" width="530" height="780" class="panel"/>
+  <text x="1485" y="180" text-anchor="middle" class="panel-title">Mode Regresi Langsung</text>
+
+  <rect x="1260" y="230" width="450" height="90" class="block"/>
+  <text x="1485" y="275" text-anchor="middle" class="block-text">Input Citra</text>
+
+  <rect x="1260" y="390" width="450" height="110" class="block"/>
+  <text x="1485" y="442" text-anchor="middle" class="block-text">Backbone CNN + AvgPool</text>
+  <text x="1485" y="470" text-anchor="middle" class="small-text">fitur global gambar</text>
+
+  <path d="M1485 320 L1485 390" class="arrow"/>
+
+  <rect x="1260" y="550" width="450" height="95" class="head"/>
+  <text x="1485" y="605" text-anchor="middle" class="block-text">Head FC (34 output)</text>
+
+  <path d="M1485 500 L1485 550" class="arrow"/>
+
+  <rect x="1260" y="700" width="450" height="95" class="out"/>
+  <text x="1485" y="736" text-anchor="middle" class="block-text">Sigmoid -> 17 koordinat (x, y)</text>
+  <text x="1485" y="764" text-anchor="middle" class="small-text">nilai ternormalisasi 0..1</text>
+
+  <path d="M1485 645 L1485 700" class="arrow"/>
+</svg>

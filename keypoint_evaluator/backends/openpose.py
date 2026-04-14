@@ -30,6 +30,8 @@ import re
 import subprocess
 import sys
 import time
+import shutil
+import tempfile
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -46,8 +48,13 @@ from .registry import register
 
 
 def _parse_frame_idx_from_filename(fname: str) -> Optional[int]:
-    m = re.search(r"(\d+)", Path(fname).stem)
-    return int(m.group(1)) if m else None
+    """Extract the trailing frame index from an OpenPose JSON stem.
+
+    OpenPose output names may contain digits in the source video basename.
+    The last numeric group corresponds to the frame number we want.
+    """
+    matches = re.findall(r"(\d+)", Path(fname).stem)
+    return int(matches[-1]) if matches else None
 
 
 def _parse_op_keypoints(
@@ -93,18 +100,7 @@ class OpenPoseBackend(BackendAdapter):
     def load(self, config: dict) -> None:
         self._config = config
 
-    # ── Full-video inference ──────────────────────────────────────────────────
-
-    def process_video(
-        self,
-        video_path: str,
-        out_dir: str,
-    ) -> Tuple[Dict[int, List[Pose17]], float]:
-        out_path = Path(out_dir).resolve()
-        out_path.mkdir(parents=True, exist_ok=True)
-        json_out = out_path / "json_frames"
-        json_out.mkdir(exist_ok=True)
-
+    def _resolve_binary_and_paths(self) -> Tuple[Path, str]:
         op_dir = Path(
             self._config.get(
                 "openpose_dir",
@@ -120,11 +116,7 @@ class OpenPoseBackend(BackendAdapter):
             if Path(model_folder_raw).is_absolute()
             else (self._workspace_root / model_folder_raw).resolve()
         )
-        body_model = self._config.get("body_model", "BODY_25")
-        net_res = self._config.get("net_resolution", "-1x368")
-        device = self._config.get("device", "cuda")
 
-        # Locate binary
         candidates = [
             op_dir / "bin" / "OpenPoseDemo.exe",
             op_dir / "Release" / "OpenPoseDemo.exe",
@@ -143,22 +135,57 @@ class OpenPoseBackend(BackendAdapter):
                 "Please build OpenPose with the CMake instructions in openpose/README.md."
             )
 
-        cmd = [
+        return bin_path, model_folder
+
+    def _build_cli_cmd(
+        self,
+        bin_path: Path,
+        input_flag: str,
+        input_path: str,
+        json_out: Path,
+        model_folder: str,
+        body_model: str,
+        net_res: str,
+    ) -> List[str]:
+        return [
             str(bin_path),
-            "--video",         str(video_path),
-            "--write_json",    str(json_out),
-            "--model_folder",  str(model_folder),
-            "--model_pose",    body_model,
-            "--net_resolution",net_res,
-            "--display",       "0",
-            "--render_pose",   "0",
+            input_flag, str(input_path),
+            "--write_json", str(json_out),
+            "--model_folder", str(model_folder),
+            "--model_pose", body_model,
+            "--net_resolution", net_res,
+            "--display", "0",
+            "--render_pose", "0",
             # Note: do NOT pass --num_gpu 0 for CPU_ONLY builds – it disables
             # all inference workers. CPU_ONLY builds run on CPU automatically.
         ]
 
-        # Run from the exe's own directory so its sibling DLLs are found.
-        exe_cwd = str(bin_path.parent)
+    def _run_cli_inference(
+        self,
+        input_flag: str,
+        input_path: str,
+        out_dir: str,
+    ) -> Tuple[Dict[int, List[Pose17]], float]:
+        out_path = Path(out_dir).resolve()
+        out_path.mkdir(parents=True, exist_ok=True)
+        json_out = out_path / "json_frames"
+        json_out.mkdir(exist_ok=True)
 
+        bin_path, model_folder = self._resolve_binary_and_paths()
+        body_model = self._config.get("body_model", "BODY_25")
+        net_res = self._config.get("net_resolution", "-1x368")
+
+        cmd = self._build_cli_cmd(
+            bin_path=bin_path,
+            input_flag=input_flag,
+            input_path=input_path,
+            json_out=json_out,
+            model_folder=model_folder,
+            body_model=body_model,
+            net_res=net_res,
+        )
+
+        exe_cwd = str(bin_path.parent)
         t0 = time.perf_counter()
         proc = subprocess.run(cmd, capture_output=True, text=True, cwd=exe_cwd)
         t1 = time.perf_counter()
@@ -172,9 +199,38 @@ class OpenPoseBackend(BackendAdapter):
 
         n_joints = 25 if body_model == "BODY_25" else 18
         mapping = OPENPOSE25_TO_COCO17 if n_joints == 25 else OPENPOSE18_TO_COCO17
-
         predictions = self._parse_json_dir(json_out, n_joints, mapping)
         return predictions, total_ms
+
+    # ── Full-video inference ──────────────────────────────────────────────────
+
+    def process_video(
+        self,
+        video_path: str,
+        out_dir: str,
+    ) -> Tuple[Dict[int, List[Pose17]], float]:
+        return self._run_cli_inference("--video", str(video_path), out_dir)
+
+    def infer_image(self, image_path: str, out_dir: str) -> Tuple[List[Pose17], float]:
+        """Run OpenPose on a single image and return all detected persons."""
+        image_path_obj = Path(image_path)
+        if not image_path_obj.exists():
+            raise FileNotFoundError(image_path)
+
+        with tempfile.TemporaryDirectory() as temp_input_dir:
+            temp_input_path = Path(temp_input_dir) / image_path_obj.name
+            shutil.copy2(image_path_obj, temp_input_path)
+            predictions_by_frame, total_ms = self._run_cli_inference(
+                "--image_dir",
+                temp_input_dir,
+                out_dir,
+            )
+
+        if not predictions_by_frame:
+            return [], total_ms
+
+        first_frame = min(predictions_by_frame)
+        return predictions_by_frame[first_frame], total_ms
 
     # ── Parser ────────────────────────────────────────────────────────────────
 
