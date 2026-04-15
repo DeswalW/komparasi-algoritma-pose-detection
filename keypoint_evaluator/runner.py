@@ -357,7 +357,7 @@ def run_benchmark(cfg: RunConfig) -> None:
     )
 
     # Shared summary CSV across all backends and videos
-    summary_csv = out_root / "summary_all.csv"
+    summary_csv = out_root / "summary_all_final.csv"
 
     for backend_name in backend_names:
         print(f"\n{'#'*60}")

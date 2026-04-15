@@ -177,6 +177,22 @@ def _parse_args(argv=None) -> argparse.Namespace:
         metavar="PX",
         help="PoseNet input image size. Default: 224",
     )
+    pn.add_argument(
+        "--posenet-model",
+        default="keypointrcnn_resnet50_fpn",
+        choices=["keypointrcnn_resnet50_fpn", "resnet18_regressor"],
+        help=(
+            "PoseNet backend model type. "
+            "Use keypointrcnn_resnet50_fpn for COCO-pretrained inference."
+        ),
+    )
+    pn.add_argument(
+        "--posenet-det-thresh",
+        type=float,
+        default=0.3,
+        metavar="T",
+        help="Detection threshold for keypointrcnn_resnet50_fpn. Default: 0.3",
+    )
 
     # ── OpenPose config ───────────────────────────────────────────────────────
     op = p.add_argument_group("OpenPose backend options")
@@ -333,6 +349,8 @@ def build_backend_config(args: argparse.Namespace) -> dict:
         "posenet_dir":     args.posenet_dir,
         "posenet_checkpoint": args.posenet_checkpoint,
         "posenet_input_size": args.posenet_input_size,
+        "posenet_model": args.posenet_model,
+        "posenet_det_thresh": args.posenet_det_thresh,
         # OpenPose
         "openpose_dir":    args.openpose_dir,
         "model_folder":    args.openpose_model_folder,

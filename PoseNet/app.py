@@ -10,6 +10,9 @@ import torchvision.transforms as transforms
 from PIL import Image
 
 
+DEFAULT_MODEL_TYPE = "keypointrcnn_resnet50_fpn"
+
+
 class PoseRegressor(torch.nn.Module):
 	"""Simple PoseNet-like regressor built on ResNet18.
 
@@ -39,7 +42,23 @@ class PoseRegressor(torch.nn.Module):
 		out = out.view(-1, self.num_keypoints, 2)
 		return out
 
-def load_model(device: torch.device, num_keypoints: int = 17, checkpoint: str = None) -> PoseRegressor:
+def load_model(
+	device: torch.device,
+	num_keypoints: int = 17,
+	checkpoint: str = None,
+	model_type: str = DEFAULT_MODEL_TYPE,
+) -> torch.nn.Module:
+	if model_type == "keypointrcnn_resnet50_fpn":
+		try:
+			weights = models.detection.KeypointRCNN_ResNet50_FPN_Weights.DEFAULT
+			model = models.detection.keypointrcnn_resnet50_fpn(weights=weights)
+		except Exception:
+			# Fallback for older torchvision versions.
+			model = models.detection.keypointrcnn_resnet50_fpn(pretrained=True)
+		model = model.to(device)
+		model.eval()
+		return model
+
 	model = PoseRegressor(num_keypoints=num_keypoints, pretrained=True)
 	if checkpoint:
 		sd = torch.load(checkpoint, map_location=device)
@@ -93,23 +112,83 @@ def postprocess_preds(preds: np.ndarray, orig_size: Tuple[int, int], input_size:
 	keypoints = np.stack([xs, ys], axis=1)
 	return keypoints
 
+
+def infer_keypoints_from_frame(
+	model: torch.nn.Module,
+	frame_bgr: np.ndarray,
+	device: torch.device,
+	input_size: int = 224,
+	model_type: str = DEFAULT_MODEL_TYPE,
+	detection_thresh: float = 0.3,
+) -> Tuple[np.ndarray, np.ndarray]:
+	"""Infer 17 keypoints from a frame.
+
+	Returns:
+		keypoints_xy: shape (17, 2)
+		confidences: shape (17,)
+	"""
+	h, w = frame_bgr.shape[:2]
+
+	if model_type == "keypointrcnn_resnet50_fpn":
+		rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+		tensor = torch.from_numpy(rgb).permute(2, 0, 1).float() / 255.0
+		tensor = tensor.to(device)
+
+		with torch.no_grad():
+			outputs = model([tensor])[0]
+
+		scores = outputs.get("scores")
+		keypoints = outputs.get("keypoints")
+		if scores is None or keypoints is None or scores.numel() == 0:
+			return np.zeros((17, 2), dtype=np.float32), np.zeros((17,), dtype=np.float32)
+
+		scores_np = scores.detach().cpu().numpy()
+		best_idx = int(np.argmax(scores_np))
+		if float(scores_np[best_idx]) < float(detection_thresh):
+			return np.zeros((17, 2), dtype=np.float32), np.zeros((17,), dtype=np.float32)
+
+		kpts = keypoints[best_idx].detach().cpu().numpy()  # (17,3) x,y,score
+		xy = kpts[:, :2].astype(np.float32)
+		xy[:, 0] = np.clip(xy[:, 0], 0, max(0, w - 1))
+		xy[:, 1] = np.clip(xy[:, 1], 0, max(0, h - 1))
+		conf = kpts[:, 2].astype(np.float32)
+		return xy, conf
+
+	tensor, orig_size = preprocess_frame(frame_bgr, input_size=input_size)
+	tensor = tensor.to(device)
+	with torch.no_grad():
+		preds = model(tensor)
+	preds = preds.cpu().numpy()[0]
+	keypoints_xy = postprocess_preds(preds, orig_size, input_size=input_size).astype(np.float32)
+	confidences = np.ones((keypoints_xy.shape[0],), dtype=np.float32)
+	return keypoints_xy, confidences
+
 def draw_keypoints(img: np.ndarray, keypoints: np.ndarray, color=(0, 255, 0)) -> np.ndarray:
 	out = img.copy()
 	for (x, y) in keypoints.astype(int):
 		cv2.circle(out, (int(x), int(y)), radius=4, color=color, thickness=-1)
 	return out
 
-def run_on_image(model: torch.nn.Module, device: torch.device, img_path: str, output_path: str = None) -> str:
+def run_on_image(
+	model: torch.nn.Module,
+	device: torch.device,
+	img_path: str,
+	output_path: str = None,
+	model_type: str = DEFAULT_MODEL_TYPE,
+	detection_thresh: float = 0.3,
+) -> str:
 	input_size = 224
-	tensor, pil_img, orig_size = preprocess_image(img_path, input_size=input_size)
-	tensor = tensor.to(device)
-	with torch.no_grad():
-		preds = model(tensor)  # (1, num_kp, 2)
-	preds = preds.cpu().numpy()[0]
-	keypoints = postprocess_preds(preds, orig_size, input_size=input_size)
-
-	# Read original image with OpenCV for drawing
+	pil_img = Image.open(img_path).convert("RGB")
 	img_cv = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+	keypoints, _conf = infer_keypoints_from_frame(
+		model,
+		img_cv,
+		device,
+		input_size=input_size,
+		model_type=model_type,
+		detection_thresh=detection_thresh,
+	)
+
 	out_img = draw_keypoints(img_cv, keypoints)
 
 	if output_path is None:
@@ -118,7 +197,16 @@ def run_on_image(model: torch.nn.Module, device: torch.device, img_path: str, ou
 	cv2.imwrite(output_path, out_img)
 	return output_path
 
-def run_on_webcam(model: torch.nn.Module, device: torch.device, camera_index: int = 0, display: bool = True, save_path: str = None, fps: int = 20):
+def run_on_webcam(
+	model: torch.nn.Module,
+	device: torch.device,
+	camera_index: int = 0,
+	display: bool = True,
+	save_path: str = None,
+	fps: int = 20,
+	model_type: str = DEFAULT_MODEL_TYPE,
+	detection_thresh: float = 0.3,
+):
 	"""Run inference on webcam frames.
 
 	- display: whether to show a window
@@ -147,12 +235,14 @@ def run_on_webcam(model: torch.nn.Module, device: torch.device, camera_index: in
 			if not ret:
 				break
 
-			tensor, orig_size = preprocess_frame(frame, input_size=224)
-			tensor = tensor.to(device)
-			with torch.no_grad():
-				preds = model(tensor)
-			preds = preds.cpu().numpy()[0]
-			keypoints = postprocess_preds(preds, orig_size, input_size=224)
+			keypoints, _conf = infer_keypoints_from_frame(
+				model,
+				frame,
+				device,
+				input_size=224,
+				model_type=model_type,
+				detection_thresh=detection_thresh,
+			)
 
 			out_frame = draw_keypoints(frame, keypoints)
 
@@ -175,6 +265,18 @@ def parse_args():
 	p = argparse.ArgumentParser(description="Simple PoseNet-like pose regressor demo (PyTorch).")
 	p.add_argument("image", nargs="?", help="Path to input image. If omitted and --webcam is set, webcam will be used.")
 	p.add_argument("--checkpoint", help="Optional model checkpoint (state_dict)")
+	p.add_argument(
+		"--model-type",
+		default=DEFAULT_MODEL_TYPE,
+		choices=["keypointrcnn_resnet50_fpn", "resnet18_regressor"],
+		help="Pose model type. Default uses COCO-pretrained Keypoint R-CNN.",
+	)
+	p.add_argument(
+		"--det-thresh",
+		type=float,
+		default=0.3,
+		help="Detection score threshold for keypoint R-CNN.",
+	)
 	p.add_argument("--out", help="Optional path to save output image with keypoints (or output video when using --webcam)")
 	p.add_argument("--num-keypoints", type=int, default=17, help="Number of keypoints to predict")
 	p.add_argument("--webcam", action="store_true", help="Enable webcam mode instead of single image")
@@ -192,17 +294,38 @@ def main():
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 	print(f"Using device: {device}")
 
-	model = load_model(device, num_keypoints=args.num_keypoints, checkpoint=args.checkpoint)
+	model = load_model(
+		device,
+		num_keypoints=args.num_keypoints,
+		checkpoint=args.checkpoint,
+		model_type=args.model_type,
+	)
 	if args.webcam:
 		# run webcam mode
-		run_on_webcam(model, device, camera_index=args.camera_index, display=args.display, save_path=args.out, fps=args.fps)
+		run_on_webcam(
+			model,
+			device,
+			camera_index=args.camera_index,
+			display=args.display,
+			save_path=args.out,
+			fps=args.fps,
+			model_type=args.model_type,
+			detection_thresh=args.det_thresh,
+		)
 		if args.out:
 			print(f"Saved recorded webcam video to: {args.out}")
 	else:
 		if not args.image:
 			print("No image provided and webcam mode not set. Exiting.")
 			return
-		out_path = run_on_image(model, device, args.image, output_path=args.out)
+		out_path = run_on_image(
+			model,
+			device,
+			args.image,
+			output_path=args.out,
+			model_type=args.model_type,
+			detection_thresh=args.det_thresh,
+		)
 		print(f"Saved output with keypoints to: {out_path}")
 
 if __name__ == "__main__":

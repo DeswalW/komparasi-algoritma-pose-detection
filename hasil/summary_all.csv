@@ -1,0 +1,3 @@
+video_name,algorithm,scene_person_mode,lighting_mode,n_frames_total,n_frames_scored,n_frames_no_active_gt,n_frames_pred_missing,matched_frame_rate,total_eval_kpt,total_missing_pred_kpt,total_pck_correct,oks_mean_frame,oks_median_frame,oks_weighted,pck_global,latency_mean_ms,latency_median_ms,latency_p95_ms,fps_mean,fps_effective,notes
+SP_T_DudukBerdiri_1,posenet,single,bright,122,122,0,0,1.000000,1464,0,1464,0.850592,0.849120,0.850592,1.000000,930.612810,933.844600,951.818400,1.075085,1.074561,
+SP_T_DudukBerdiri_1,openpose,single,bright,122,122,0,0,1.000000,1464,0,1464,0.860325,0.860295,0.860325,1.000000,14586.371416,14586.371416,14586.371416,0.068557,0.068557,

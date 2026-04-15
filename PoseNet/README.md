@@ -1,6 +1,11 @@
-# PoseNet-like PyTorch demo (ResNet18 regressor)
+# PoseNet-like PyTorch demo
 
-Demo script that uses a ResNet18 backbone (pretrained) as a simple regressor to predict 2D keypoint coordinates (x,y) for pose detection. The outputs are normalized to [0,1] with a sigmoid and then scaled back to the original image size.
+This folder now supports two runtime modes:
+
+1. `keypointrcnn_resnet50_fpn` (default): COCO-pretrained keypoint detector from torchvision.
+2. `resnet18_regressor` (legacy): simple regressor demo that requires your own checkpoint for good results.
+
+If you want strong out-of-the-box accuracy, use the default pretrained keypoint R-CNN mode.
 
 Bahasa / Indonesian quick usage:
 
@@ -20,6 +25,16 @@ Optionally provide a checkpoint (PyTorch state_dict) trained for keypoints:
 
 ```powershell
 python app.py path\to\image.jpg --checkpoint path\to\checkpoint.pth --out out.jpg
+```
+
+Choose model mode explicitly:
+
+```powershell
+# Recommended: pretrained pose model
+python app.py path\to\image.jpg --model-type keypointrcnn_resnet50_fpn --out out.jpg
+
+# Legacy demo regressor (requires checkpoint for usable quality)
+python app.py path\to\image.jpg --model-type resnet18_regressor --checkpoint path\to\checkpoint.pth --out out.jpg
 ```
 
 Webcam usage
@@ -44,9 +59,9 @@ python app.py --webcam --no-display --out out_video.mp4
 ```
 
 Notes:
-- This repository provides a minimal PoseNet-like regressor for inference/demo only. It does not include a training loop.
-- The model resizes input images to 224x224 for the ResNet backbone. Predicted normalized coordinates are scaled back to the original image width and height.
-- To train properly, you'll need a dataset with keypoint annotations and a training script that minimizes e.g. L2 loss on coordinates.
+- `keypointrcnn_resnet50_fpn` is pretrained on COCO and does not require your own checkpoint for inference.
+- `resnet18_regressor` is a minimal baseline and does not include a training loop in this folder.
+- For `resnet18_regressor`, you need a dataset with keypoint annotations and a training script that minimizes e.g. L2 loss on coordinates.
 
 If you want, I can:
 - Add a training script and a small synthetic dataset example.

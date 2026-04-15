@@ -10,6 +10,8 @@ Config keys:
     posenet_checkpoint : optional .pth checkpoint
     posenet_input_size : model input size (default: 224)
     posenet_num_keypoints : default 17
+    posenet_model      : keypointrcnn_resnet50_fpn (default) or resnet18_regressor
+    posenet_det_thresh : detection threshold for keypointrcnn (default: 0.3)
 
 Requires:
     pip install torch torchvision opencv-python pillow
@@ -41,6 +43,8 @@ class PoseNetBackend(BackendAdapter):
         self._model = None
         self._device = None
         self._input_size = 224
+        self._model_type = "keypointrcnn_resnet50_fpn"
+        self._det_thresh = 0.3
 
     def load(self, config: dict) -> None:
         try:
@@ -71,12 +75,15 @@ class PoseNetBackend(BackendAdapter):
         self._input_size = int(config.get("posenet_input_size", 224))
         num_kpts = int(config.get("posenet_num_keypoints", 17))
         checkpoint = config.get("posenet_checkpoint", "") or None
+        self._model_type = str(config.get("posenet_model", "keypointrcnn_resnet50_fpn"))
+        self._det_thresh = float(config.get("posenet_det_thresh", 0.3))
 
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._model = module.load_model(
             self._device,
             num_keypoints=num_kpts,
             checkpoint=checkpoint,
+            model_type=self._model_type,
         )
 
     def unload(self) -> None:
@@ -90,23 +97,37 @@ class PoseNetBackend(BackendAdapter):
 
         import torch
 
-        h, w = frame_bgr.shape[:2]
-        tensor, _orig_size = self._module.preprocess_frame(frame_bgr, input_size=self._input_size)
-        tensor = tensor.to(self._device)
+        # Preferred path: module helper supports both pretrained keypoint R-CNN and legacy regressor.
+        if hasattr(self._module, "infer_keypoints_from_frame"):
+            keypoints_xy, conf = self._module.infer_keypoints_from_frame(
+                self._model,
+                frame_bgr,
+                self._device,
+                input_size=self._input_size,
+                model_type=self._model_type,
+                detection_thresh=self._det_thresh,
+            )
+            src = np.concatenate(
+                [keypoints_xy.astype(np.float64), conf.reshape(-1, 1).astype(np.float64)],
+                axis=1,
+            )
+        else:
+            h, w = frame_bgr.shape[:2]
+            tensor, _orig_size = self._module.preprocess_frame(frame_bgr, input_size=self._input_size)
+            tensor = tensor.to(self._device)
 
-        with torch.no_grad():
-            preds = self._model(tensor).cpu().numpy()[0]  # (17,2) normalized x,y
+            with torch.no_grad():
+                preds = self._model(tensor).cpu().numpy()[0]  # (17,2) normalized x,y
 
-        # Convert to source array [x, y, score]
-        keypoints_xy = self._module.postprocess_preds(preds, (w, h), input_size=self._input_size)
-        src = np.concatenate(
-            [keypoints_xy.astype(np.float64), np.ones((keypoints_xy.shape[0], 1), dtype=np.float64)],
-            axis=1,
-        )
+            # Convert to source array [x, y, score]
+            keypoints_xy = self._module.postprocess_preds(preds, (w, h), input_size=self._input_size)
+            src = np.concatenate(
+                [keypoints_xy.astype(np.float64), np.ones((keypoints_xy.shape[0], 1), dtype=np.float64)],
+                axis=1,
+            )
 
         kpts = map_to_coco17(src, POSENET17_TO_COCO17, vis_threshold=0.0)
-        # Keep all predicted joints as visible for evaluation format
-        kpts[:, 2] = np.where(kpts[:, 2] > 0, 2.0, 0.0)
+        kpts[:, 2] = np.where(kpts[:, 2] > 0.05, 2.0, 0.0)
 
         bbox: Optional[np.ndarray] = None
         visible = kpts[:, 2] > 0
@@ -115,7 +136,8 @@ class PoseNetBackend(BackendAdapter):
             ys = kpts[visible, 1]
             bbox = np.array([xs.min(), ys.min(), xs.max() - xs.min(), ys.max() - ys.min()], dtype=np.float64)
 
-        return [Pose17(keypoints=kpts, bbox=bbox, score=1.0)]
+        pose_score = float(np.mean(src[:, 2])) if src.size else 0.0
+        return [Pose17(keypoints=kpts, bbox=bbox, score=pose_score)]
 
     def is_multi_person(self) -> bool:
         return False

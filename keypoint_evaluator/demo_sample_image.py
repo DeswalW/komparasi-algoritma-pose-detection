@@ -71,13 +71,22 @@ def _select_pose(predictions):
     return max(predictions, key=lambda pose: float(getattr(pose, "score", 0.0)))
 
 
-def run_posenet(image_path: Path, checkpoint: str, input_size: int, output_dir: Path) -> Path:
+def run_posenet(
+    image_path: Path,
+    checkpoint: str,
+    input_size: int,
+    model_type: str,
+    det_thresh: float,
+    output_dir: Path,
+) -> Path:
     backend = PoseNetBackend()
     backend.load(
         {
             "posenet_dir": str(_WORKSPACE_ROOT / "PoseNet"),
             "posenet_checkpoint": checkpoint,
             "posenet_input_size": input_size,
+            "posenet_model": model_type,
+            "posenet_det_thresh": det_thresh,
         }
     )
 
@@ -133,6 +142,12 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--posenet-checkpoint", default="", help="Optional PoseNet checkpoint")
     parser.add_argument("--posenet-input-size", type=int, default=224)
+    parser.add_argument(
+        "--posenet-model",
+        default="keypointrcnn_resnet50_fpn",
+        choices=["keypointrcnn_resnet50_fpn", "resnet18_regressor"],
+    )
+    parser.add_argument("--posenet-det-thresh", type=float, default=0.3)
 
     parser.add_argument("--openpose-dir", default=str(_WORKSPACE_ROOT / "openpose" / "build"))
     parser.add_argument("--openpose-model-folder", default=str(_WORKSPACE_ROOT / "openpose" / "models"))
@@ -152,7 +167,16 @@ def main() -> None:
 
     outputs: List[Path] = []
     if args.backend in ("both", "posenet"):
-        outputs.append(run_posenet(image_path, args.posenet_checkpoint, args.posenet_input_size, output_dir))
+        outputs.append(
+            run_posenet(
+                image_path,
+                args.posenet_checkpoint,
+                args.posenet_input_size,
+                args.posenet_model,
+                args.posenet_det_thresh,
+                output_dir,
+            )
+        )
     if args.backend in ("both", "openpose"):
         outputs.append(
             run_openpose(
