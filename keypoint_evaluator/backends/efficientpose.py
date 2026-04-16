@@ -76,6 +76,16 @@ def _resolve_path(workspace: Path, root: Path, raw: str, default_rel: str) -> Pa
     return (root / p).resolve()
 
 
+def _default_cfg_candidates(repo_root: Path) -> list[Path]:
+    base = repo_root / "experiments" / "coco" / "efficientpose"
+    names = [
+        "nasnet_192x256_adam_lr1e-3_efficientpose-a.yaml",
+        "nasnet_192x256_adam_lr1e-3_efficientpose-b.yaml",
+        "nasnet_192x256_adam_lr1e-3_efficientpose-c.yaml",
+    ]
+    return [(base / n).resolve() for n in names]
+
+
 def _to_torch_device(device: str):
     import torch
 
@@ -122,14 +132,28 @@ class EfficientPoseBackend(BackendAdapter):
                 "Set --efficientpose-dir to your EfficientPose-master path."
             )
 
-        cfg_path = _resolve_path(
-            self._workspace,
-            repo_root,
-            config.get("efficientpose_cfg", ""),
-            "experiments/coco/efficientpose/nasnet_192x256_adam_lr1e-3_efficientpose-a.yaml",
-        )
-        if not cfg_path.exists():
-            raise FileNotFoundError(f"EfficientPose cfg not found: {cfg_path}")
+        user_cfg_raw = str(config.get("efficientpose_cfg", "")).strip()
+        if user_cfg_raw:
+            cfg_candidates = [
+                _resolve_path(
+                    self._workspace,
+                    repo_root,
+                    user_cfg_raw,
+                    "",
+                )
+            ]
+        else:
+            cfg_candidates = [p for p in _default_cfg_candidates(repo_root) if p.exists()]
+
+        if not cfg_candidates:
+            raise FileNotFoundError(
+                "No EfficientPose cfg candidates found under "
+                f"{(repo_root / 'experiments' / 'coco' / 'efficientpose').resolve()}"
+            )
+
+        for p in cfg_candidates:
+            if not p.exists():
+                raise FileNotFoundError(f"EfficientPose cfg not found: {p}")
 
         ckpt_path = _resolve_path(
             self._workspace,
@@ -154,15 +178,44 @@ class EfficientPoseBackend(BackendAdapter):
         from core.inference import get_final_preds  # type: ignore
         from utils.transforms import get_affine_transform  # type: ignore
 
-        cfg_obj = ep_cfg.clone()
-        cfg_obj.defrost()
-        cfg_obj.merge_from_file(str(cfg_path))
-        cfg_obj.freeze()
-
-        model = eval("models." + cfg_obj.MODEL.NAME + ".get_pose_net")(cfg_obj, is_train=False)
         state_raw = torch.load(str(ckpt_path), map_location="cpu")
         state = _normalize_state_dict(state_raw)
-        model.load_state_dict(state, strict=True)
+
+        cfg_obj = None
+        model = None
+        last_err: Optional[Exception] = None
+
+        for cfg_path in cfg_candidates:
+            try:
+                candidate_cfg = ep_cfg.clone()
+                candidate_cfg.defrost()
+                candidate_cfg.merge_from_file(str(cfg_path))
+                candidate_cfg.freeze()
+
+                candidate_model = eval("models." + candidate_cfg.MODEL.NAME + ".get_pose_net")(
+                    candidate_cfg, is_train=False
+                )
+                candidate_model.load_state_dict(state, strict=True)
+
+                cfg_obj = candidate_cfg
+                model = candidate_model
+                break
+            except Exception as exc:
+                last_err = exc
+
+        if cfg_obj is None or model is None:
+            tried = ", ".join(str(p) for p in cfg_candidates)
+            if user_cfg_raw:
+                raise RuntimeError(
+                    "Failed to load EfficientPose checkpoint with provided config. "
+                    f"cfg={cfg_candidates[0]} ckpt={ckpt_path}. "
+                    f"Original error: {last_err}"
+                )
+            raise RuntimeError(
+                "Failed to match checkpoint to default EfficientPose variants (A/B/C). "
+                f"Tried cfg files: {tried}. "
+                f"Checkpoint: {ckpt_path}. Last error: {last_err}"
+            )
 
         device = _to_torch_device(config.get("device", "cpu"))
         model = model.to(device)

@@ -318,9 +318,12 @@ def _parse_args(argv=None) -> argparse.Namespace:
     )
     ep.add_argument(
         "--efficientpose-cfg",
-        default="experiments/coco/efficientpose/nasnet_192x256_adam_lr1e-3_efficientpose-a.yaml",
+        default="",
         metavar="YAML",
-        help="EfficientPose experiment config YAML (repo-relative or absolute).",
+        help=(
+            "EfficientPose experiment config YAML (repo-relative or absolute). "
+            "If omitted, backend auto-selects matching A/B/C config from checkpoint."
+        ),
     )
     ep.add_argument(
         "--efficientpose-checkpoint",
