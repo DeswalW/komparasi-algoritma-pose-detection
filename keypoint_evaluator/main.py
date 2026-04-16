@@ -150,10 +150,10 @@ def _parse_args(argv=None) -> argparse.Namespace:
     mv = p.add_argument_group("MoveNet backend options")
     mv.add_argument(
         "--movenet-model",
-        default="movenet_lightning",
+        default="movenet_thunder",
         choices=["movenet_lightning", "movenet_thunder",
                  "movenet_multipose_lightning"],
-        help="MoveNet model variant. Default: movenet_lightning",
+        help="MoveNet model variant. Default: movenet_thunder (better accuracy than lightning)",
     )
 
     # ── PoseNet config ───────────────────────────────────────────────────────
@@ -328,6 +328,14 @@ def _parse_args(argv=None) -> argparse.Namespace:
         metavar="PTH",
         help="EfficientPose model checkpoint (.pth). Required.",
     )
+    ep.add_argument(
+        "--efficientpose-use-gt-bbox",
+        action="store_true",
+        help=(
+            "If set, EfficientPose uses GT person bbox for top-down crop inference. "
+            "More accurate but requires GT annotations. Otherwise uses whole-frame center-crop."
+        ),
+    )
 
     return p.parse_args(argv)
 
@@ -374,6 +382,7 @@ def build_backend_config(args: argparse.Namespace) -> dict:
         "efficientpose_dir": args.efficientpose_dir,
         "efficientpose_cfg": args.efficientpose_cfg,
         "efficientpose_checkpoint": args.efficientpose_checkpoint,
+        "efficientpose_use_gt_bbox": args.efficientpose_use_gt_bbox,
         # Common
         "device":          args.device,
     }

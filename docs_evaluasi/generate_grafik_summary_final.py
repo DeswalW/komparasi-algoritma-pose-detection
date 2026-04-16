@@ -94,8 +94,6 @@ def resolve_summary_path(input_path: Path) -> Path:
     if input_path.is_dir():
         candidates = [
             input_path / "summary_all_final.csv",
-            input_path / "summary_final.csv",
-            input_path / "summary_all.csv",
         ]
         for c in candidates:
             if c.exists():

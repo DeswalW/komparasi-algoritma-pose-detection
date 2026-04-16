@@ -184,7 +184,14 @@ def run_evaluation(
             # Measure inference latency
             t0 = time.perf_counter()
             try:
-                predictions = backend.infer_frame(frame_bgr)
+                # For EfficientPose with GT bbox mode: pass GT bbox if available
+                if (backend.NAME == "efficientpose" and 
+                    cfg.backend_config.get("efficientpose_use_gt_bbox", False) and 
+                    gt_frame is not None):
+                    person_bbox = gt_frame.gt_bbox  # [x, y, w, h]
+                    predictions = backend.infer_frame(frame_bgr, person_bbox=person_bbox)
+                else:
+                    predictions = backend.infer_frame(frame_bgr)
             except Exception:
                 predictions = []
                 traceback.print_exc()

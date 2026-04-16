@@ -5,13 +5,20 @@ This backend integrates the local repository:
     <workspace>/EfficientPose-master
 
 It uses the original model code in that repo and requires a trained
-checkpoint (.pth). The implementation runs single-person top-down inference
-on full frames (center crop/warp), returning one Pose17 per frame.
+checkpoint (.pth). The implementation supports two inference modes:
+
+  1. Whole-frame center-crop (default): inference on full frame using center crop/warp.
+     Returns one Pose17 per frame. Backward compatible with earlier versions.
+
+  2. Top-down person crop (if person_bbox provided): crop and infer from person-centric bbox,
+     following the standard top-down paradigm. More accurate when person bbox is available 
+     (from GT or detector).
 
 Config keys:
     efficientpose_dir        : repo root path (default: <workspace>/EfficientPose-master)
     efficientpose_cfg        : experiment yaml path (default: COCO EfficientPose-A)
     efficientpose_checkpoint : required .pth model checkpoint
+    efficientpose_use_gt_bbox: bool, if True use GT bbox in evaluation (requires runner support)
     device                   : 'cpu' or GPU index string, e.g. '0'
 
 Requires:
@@ -178,7 +185,18 @@ class EfficientPoseBackend(BackendAdapter):
         self._cfg = None
         self._device = None
 
-    def infer_frame(self, frame_bgr: np.ndarray) -> List[Pose17]:
+    def infer_frame(self, frame_bgr: np.ndarray, person_bbox: Optional[np.ndarray] = None) -> List[Pose17]:
+        """Infer pose on a single frame.
+        
+        Args:
+            frame_bgr: Input image in BGR format.
+            person_bbox: Optional [x, y, w, h] bounding box for top-down mode.
+                         If provided, crop and process person-centric.
+                         If None, use whole-frame center-crop mode.
+        
+        Returns:
+            List of Pose17 objects (typically 1 for single-person modes).
+        """
         if self._model is None or self._cfg is None:
             raise RuntimeError("Backend not loaded. Call load() first.")
 
@@ -187,17 +205,38 @@ class EfficientPoseBackend(BackendAdapter):
         torch = self._torch
         h, w = frame_bgr.shape[:2]
 
-        center = np.array([w * 0.5, h * 0.5], dtype=np.float32)
-        aspect_ratio = float(self._img_w) / float(self._img_h)
-        pixel_std = 200.0
-
-        if w > aspect_ratio * h:
-            box_h = w / aspect_ratio
-            box_w = w
+        # Mode selection: top-down crop vs whole-frame center-crop
+        if person_bbox is not None and len(person_bbox) >= 4:
+            # Top-down mode: use provided person bbox
+            bbox_x, bbox_y, bbox_w, bbox_h = person_bbox[:4]
+            
+            # Convert bbox [x, y, w, h] to center and scale
+            # Following EfficientPose/HRNet convention
+            center = np.array([bbox_x + bbox_w * 0.5, bbox_y + bbox_h * 0.5], dtype=np.float32)
+            aspect_ratio = float(self._img_w) / float(self._img_h)
+            pixel_std = 200.0
+            
+            # Scale calculation based on bbox size
+            if bbox_w > aspect_ratio * bbox_h:
+                box_h = bbox_w / aspect_ratio
+                box_w = bbox_w
+            else:
+                box_w = bbox_h * aspect_ratio
+                box_h = bbox_h
+            scale = np.array([box_w / pixel_std, box_h / pixel_std], dtype=np.float32)
         else:
-            box_w = h * aspect_ratio
-            box_h = h
-        scale = np.array([box_w / pixel_std, box_h / pixel_std], dtype=np.float32)
+            # Whole-frame center-crop mode (backward compatible)
+            center = np.array([w * 0.5, h * 0.5], dtype=np.float32)
+            aspect_ratio = float(self._img_w) / float(self._img_h)
+            pixel_std = 200.0
+
+            if w > aspect_ratio * h:
+                box_h = w / aspect_ratio
+                box_w = w
+            else:
+                box_w = h * aspect_ratio
+                box_h = h
+            scale = np.array([box_w / pixel_std, box_h / pixel_std], dtype=np.float32)
 
         trans = self._get_affine_transform(center, scale, 0, [self._img_w, self._img_h])
         inp = cv2.warpAffine(frame_bgr, trans, (self._img_w, self._img_h), flags=cv2.INTER_LINEAR)
